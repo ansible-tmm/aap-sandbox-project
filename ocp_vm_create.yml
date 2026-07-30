@@ -4,12 +4,25 @@
   gather_facts: false
   
   tasks:
-    - name: Create a RHEL VM in OpenShift
+    - name: Create a RHEL VM in OpenShift rhel9
       redhat.openshift.k8s:
         definition:
           apiVersion: kubevirt.io/v1
           kind: VirtualMachine
           metadata:
+            annotations:
+              kubevirt.io/latest-observed-api-version: v1
+              kubevirt.io/storage-observed-api-version: v1
+              vm.kubevirt.io/validations: |
+                [
+                  {
+                    "name": "minimal-required-memory",
+                    "path": "jsonpath::.spec.domain.memory.guest",
+                    "rule": "integer",
+                    "message": "This VM requires more memory.",
+                    "min": 1610612736
+                  }
+                ]
             name: "{{ vm_name }}"
             namespace: "{{ ocp_namespace }}"
             labels:
@@ -25,7 +38,7 @@
               - apiVersion: cdi.kubevirt.io/v1beta1
                 kind: DataVolume
                 metadata:
-                  name: "{{ vm_name }}"
+                  name: "{{ vm_name }}-root"
                 spec:
                   sourceRef:
                     kind: DataSource
@@ -37,9 +50,15 @@
                         storage: 30Gi
             template:
               metadata:
+                annotations:
+                  kubevirt.io/pci-topology-version: v3
+                  vm.kubevirt.io/flavor: small
+                  vm.kubevirt.io/os: rhel9
+                  vm.kubevirt.io/workload: server
                 labels:
                   kubevirt.io/domain: "{{ vm_name }}"
                   kubevirt.io/size: small
+                  network.kubevirt.io/headlessService: headless
               spec:
                 architecture: amd64
                 domain:
@@ -49,17 +68,17 @@
                     threads: 1
                   devices:
                     disks:
-                      - disk:
+                      - bootOrder: 1
+                        disk:
                           bus: virtio
                         name: rootdisk
                       - disk:
                           bus: virtio
                         name: cloudinitdisk
                     interfaces:
-                      - macAddress: "02:f3:be:00:00:{{ '%02x' | format(10) }}"
-                        masquerade: {}
+                      - name: default
                         model: virtio
-                        name: default
+                        masquerade: {}
                     networkInterfaceMultiqueue: true
                     rng: {}
                   features:
@@ -76,6 +95,7 @@
                 networks:
                   - name: default
                     pod: {}
+                subdomain: headless
                 terminationGracePeriodSeconds: 180
                 tolerations:
                   - effect: NoSchedule
@@ -83,11 +103,14 @@
                     operator: Exists
                 volumes:
                   - dataVolume:
-                      name: "{{ vm_name }}"
+                      name: "{{ vm_name }}-root"
                     name: rootdisk
                   - cloudInitNoCloud:
                       userData: |
                         #cloud-config
+                        user: cloud-user
+                        password: "{{ vm_password }}"
+                        lock_passwd: false
                         users:
                           - name: cloud-user
                             sudo: ['ALL=(ALL) NOPASSWD: ALL']
@@ -101,8 +124,6 @@
                           list: |
                             cloud-user:{{ vm_password }}
                           expire: False
-                        ssh_authorized_keys:
-                          - "{{ ssh_public_key }}"
                     name: cloudinitdisk
 
     - name: Wait for system to become reachable over

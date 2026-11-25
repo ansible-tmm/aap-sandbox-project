@@ -51,6 +51,55 @@
           failed_when: false
           register: __sandbox_baseline_package
 
+        - name: Check the chronyd service state
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - is-active
+              - chronyd
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_chronyd_active
+
+        - name: Check the chronyd service enablement
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - is-enabled
+              - chronyd
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_chronyd_enabled
+
+        - name: Read the configured time sources
+          ansible.builtin.command:
+            argv:
+              - grep
+              - -E
+              - "^(server|pool)"
+              - /etc/chrony.conf
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_chrony_conf
+
+        - name: Check the active time sources
+          ansible.builtin.command:
+            argv:
+              - chronyc
+              - sources
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_chrony_sources
+
+        - name: Check the clock tracking status
+          ansible.builtin.command:
+            argv:
+              - chronyc
+              - tracking
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_chrony_tracking
+
         - name: Show the recorded baseline
           ansible.builtin.debug:
             msg:
@@ -66,6 +115,18 @@
                 package {{ sandbox_test_package | default('tree') }}:
                 rc={{ __sandbox_baseline_package.rc }},
                 out={{ __sandbox_baseline_package.stdout | trim }}
+              - >-
+                chronyd: active={{ __sandbox_baseline_chronyd_active.stdout | trim }},
+                enabled={{ __sandbox_baseline_chronyd_enabled.stdout | trim }}
+              - >-
+                chrony.conf sources:
+                {{ __sandbox_baseline_chrony_conf.stdout | trim }}
+              - >-
+                chronyc sources:
+                {{ __sandbox_baseline_chrony_sources.stdout | trim | truncate(600) }}
+              - >-
+                chronyc tracking:
+                {{ __sandbox_baseline_chrony_tracking.stdout | trim | truncate(600) }}
       always:
         - name: Remove the temporary SSH identity
           ansible.builtin.include_role:

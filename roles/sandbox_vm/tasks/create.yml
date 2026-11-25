@@ -93,6 +93,11 @@
   redhat.openshift.k8s:
     state: present
     definition: "{{ lookup('ansible.builtin.template', 'virtual-machine.yml.j2') | from_yaml }}"
+  when: __sandbox_vm_existing.resources | length == 0
+  # Re-applying the manifest on an existing VM would replace the Sandbox
+  # mutator's platform-injected cloud-init keys, because the webhook only
+  # mutates on admission of a new VM. Existing managed VMs are validated
+  # above and by the start tasks instead of being rewritten.
 
 - name: Create | Explicitly start the VM and discover its address
   ansible.builtin.import_tasks: start.yml

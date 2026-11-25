@@ -1,0 +1,61 @@
+---
+- name: Check that inventory contains the selected VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sandbox_vm
+      sandbox_vm_action: check_inventory
+
+- name: Install and verify the approved package on the registered VM
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Install the approved package using its unlocked repositories
+      block:
+        - name: Prepare SSH access
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: prepare_ssh
+
+        - name: Gather guest facts after SSH is ready
+          ansible.builtin.setup:
+
+        - name: List the enabled repositories backing the installation
+          ansible.builtin.command:
+            argv:
+              - dnf
+              - repolist
+              - enabled
+          changed_when: false
+          register: __sandbox_package_repolist
+
+        - name: Show the enabled repositories
+          ansible.builtin.debug:
+            var: __sandbox_package_repolist.stdout_lines
+
+        - name: Install the approved test package
+          ansible.builtin.dnf:
+            name: "{{ sandbox_test_package | default('tree') }}"
+            state: present
+
+        - name: Verify the test package is installed
+          ansible.builtin.command:
+            argv:
+              - rpm
+              - -q
+              - "{{ sandbox_test_package | default('tree') }}"
+          changed_when: false
+          register: __sandbox_package_verify
+
+        - name: Show the installed package version
+          ansible.builtin.debug:
+            var: __sandbox_package_verify.stdout
+      always:
+        - name: Remove the temporary SSH identity
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: cleanup_ssh

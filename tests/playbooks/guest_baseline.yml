@@ -1,0 +1,74 @@
+---
+- name: Check that inventory contains the selected VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sandbox_vm
+      sandbox_vm_action: check_inventory
+
+- name: Record the guest baseline without modifying it
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Record the pre-registration baseline using the generated SSH identity
+      block:
+        - name: Prepare SSH access
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: prepare_ssh
+
+        - name: Gather guest facts after SSH is ready
+          ansible.builtin.setup:
+
+        - name: Check the registration identity reported by subscription-manager
+          ansible.builtin.command:
+            argv:
+              - subscription-manager
+              - identity
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_identity
+
+        - name: Check the rhc connection status
+          ansible.builtin.command:
+            argv:
+              - rhc
+              - status
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_rhc
+
+        - name: Check whether the approved test package is already installed
+          ansible.builtin.command:
+            argv:
+              - rpm
+              - -q
+              - "{{ sandbox_test_package | default('tree') }}"
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_package
+
+        - name: Show the recorded baseline
+          ansible.builtin.debug:
+            msg:
+              - >-
+                subscription-manager identity: rc={{ __sandbox_baseline_identity.rc }},
+                out={{ __sandbox_baseline_identity.stdout | trim }},
+                err={{ __sandbox_baseline_identity.stderr | trim }}
+              - >-
+                rhc status: rc={{ __sandbox_baseline_rhc.rc }},
+                out={{ __sandbox_baseline_rhc.stdout | trim | truncate(400) }},
+                err={{ __sandbox_baseline_rhc.stderr | trim | truncate(200) }}
+              - >-
+                package {{ sandbox_test_package | default('tree') }}:
+                rc={{ __sandbox_baseline_package.rc }},
+                out={{ __sandbox_baseline_package.stdout | trim }}
+      always:
+        - name: Remove the temporary SSH identity
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: cleanup_ssh

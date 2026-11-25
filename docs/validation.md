@@ -1,6 +1,10 @@
 # Candidate validation
 
-Recorded November 25, 2026. **OpenShift end-to-end validation is still pending.**
+Recorded November 25, 2026. **The normal VM lifecycle passed on commit
+`d11a722`, using the pinned AAP 2.7 supported EE and OpenShift 4.22.22.**
+
+Registration, Timesync, and the separately created OpenShift ServiceAccount
+credential flow remain untested. The final learner-copy rewrite is pending.
 
 ## Completed preflight checks for the first candidate
 
@@ -15,7 +19,7 @@ Recorded November 25, 2026. **OpenShift end-to-end validation is still pending.*
 | Inventory input compatibility | `vm_name` and `ocp_namespace` resolved from inventory on implicit localhost |
 | `ssh-keygen` in the supported EE | Available |
 
-The final supported-EE check ran as AAP ad hoc diagnostic **#4**, using the
+The first candidate's supported-EE check ran as AAP ad hoc diagnostic **#4**, using the
 pinned default image documented in the [README](../README.md). The actual
 ansible-core version was **2.16.19**. The local linter used ansible-core
 2.20.5; that local check alone could not resolve the expanded role's missing
@@ -43,17 +47,15 @@ To repeat the local-only checks inside the chosen EE:
 python3 tests/check.py
 ```
 
-## What these checks do not establish
+## Limits of the preflight checks
 
-No candidate playbook has created a VM or Secret, started/stopped a guest,
-retrieved its real SSH identity, or deleted its storage. No registration or
-Timesync operation was run. Module availability and template correctness are
-not proof of API admission, storage provisioning, network reachability, or
-guest authentication.
+The preflight checks above did not create a VM or Secret, start/stop a guest,
+retrieve its real SSH identity, or delete storage. Module availability and
+template correctness alone did not prove admission, provisioning or SSH.
+The subsequent real runs below established those outcomes for the tested path.
 
-The next approved test is the normal Create → inventory sync → fresh-job SSH
-verification → Stop → Start → Delete sequence described in the README.
-Its test-branch push and named OpenShift resources require confirmation first.
+The real runs used an explicitly approved test branch and named disposable
+resources. Repeating cluster-changing tests still requires confirmation.
 
 ## First real Create VM run
 
@@ -68,8 +70,8 @@ Create VM job **#6**:
 - Was rejected at VM admission by
   `users.virtualmachines.validating.webhook.sandbox`: a user must be configured
   in the cloud-init volume.
-- Created no VM, DataVolume, or boot PVC. The two managed Secrets remain for
-  the normal retry/cleanup path.
+- Created no VM, DataVolume, or boot PVC. The two managed Secrets were retained
+  for the retry, reused by job #10, and removed by job #15.
 
 The public Sandbox webhook implementation explains the rejection: its validator
 requires an inline `user` string, and its mutator appends platform SSH keys to
@@ -120,8 +122,65 @@ SSH files were removed. Secret read/staging task results were censored.
 
 Delete VM job **#15** succeeded in approximately **31 seconds**. Independent
 read-only API checks then returned 404 for the VM, DataVolume, PVC and both
-Secrets. The final fresh lifecycle run with the stronger readiness gate is
-still pending.
+Secrets.
+
+## Final fresh lifecycle: passed
+
+The final run used commit `d11a722`, the pinned supported EE and only the
+explicitly associated OpenShift credential. No Machine credential, learner-made
+SSH key, or AAP API credential was supplied to the playbooks.
+
+An intermediate test-harness guard caught an inventory-source setup error
+before creating another VM: a legacy API credential field had not associated
+the credential. The isolated test source was corrected through its
+`credentials/` association endpoint, and that association was verified before
+the final run. This was not a required learner-playbook change.
+
+| Stage | AAP job/update | Result | Execution time |
+| --- | --- | --- | --- |
+| Project sync | 17 | Passed; exact tested revision | 2.7 s |
+| Fresh Create VM | 18 | Passed; new identity generated automatically | 259.4 s |
+| First inventory sync | 20 | Passed; one host with an address, no retry | 5.3 s |
+| Fresh-EE SSH and sudo | 21 | Passed | 10.4 s |
+| Stop VM | 22 | Passed | 19.3 s |
+| Start VM | 23 | Passed; authenticated SSH verified | 49.3 s |
+| Inventory refresh | 24 | Passed; address present | 5.3 s |
+| Fresh-EE SSH and sudo after restart | 25 | Passed | 11.2 s |
+| Delete VM | 26 | Passed | 30.8 s |
+| Inventory cleanup | 27 | Passed; zero hosts | 5.3 s |
+
+The VM retained `runStrategy: Manual`, used 2 GiB guest RAM and a 30 GiB boot
+disk, and had 832 bytes of inline user data after Sandbox mutation. Its only
+SSH access-credential reference was to the public-key Secret.
+
+Secret-handling task results were censored. The monitored job events contained
+no detected private-key or token markers. Temporary local monitoring-token
+files were removed after each monitor finished.
+
+Independent read-only cleanup verification returned 404 for:
+
+- VirtualMachine and VirtualMachineInstance
+- DataVolume and boot PVC
+- SSH identity Secret and cloud-init public-key Secret
+
+No matching test launcher pod, volume snapshot, or PVC remained. Namespace storage quota
+returned to its starting usage of **2 PVCs / 18 GiB**, and the isolated AAP
+inventory had **zero hosts**. Existing workloads, RBAC, quotas and networking
+were not changed. Remote `main` was not updated.
+
+The test AAP project, inventory source, templates and encrypted OpenShift
+credential remain available for the next approved checks.
+
+### Remaining validation
+
+- Run the same learner path using the lesson-created, namespace-scoped
+  OpenShift ServiceAccount token. The completed run used the supplied user token;
+  it does not establish identical permissions for that separate identity.
+- Reconcile the original service-account client-ID/secret instructions with
+  the registration role's activation-key/organization-ID inputs, then verify
+  registration with approved credentials.
+- Execute the Timesync system role and final learner workflow.
+- Rewrite the historical learner instructions around the verified experience.
 
 ## Resource sizing review
 

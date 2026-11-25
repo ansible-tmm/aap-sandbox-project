@@ -88,5 +88,7 @@ guest-agent report and leave an immediate inventory sync without `ansible_host`.
 - Unmanaged name collisions are refused. Existing unmanaged lab VMs require
   an explicitly reviewed migration or a new VM name.
 - Check mode is deliberately unsupported and fails before operations.
-- Actual VM creation, key retrieval, guest access and cleanup still require the
-  approved end-to-end test. Syntax checks alone do not establish these outcomes.
+- Fresh VM creation, persisted-key retrieval, guest SSH/sudo access, stop/start
+  and complete cleanup passed the approved normal-path test on the pinned EE
+  and supplied RHEL 9 image. See [validation results](../../docs/validation.md).
+  This does not validate other images or external Red Hat registration.

@@ -13,8 +13,9 @@ job-template paths.
 
 > **Guide revision in progress:** the remaining published instructions below,
 > including the custom EE and manual SSH credential setup, are retained as
-> historical material pending the normal end-to-end test. They do not yet
-> describe the candidate Secret-managed SSH implementation.
+> historical material pending the learner-copy rewrite and registration checks.
+> The new VM/Secret-managed SSH lifecycle has passed its normal end-to-end test,
+> but the instructions below do not yet describe that implementation.
 > See the [repository README](../README.md) for its current setup and validation
 > scope. Registration authentication remains under review.
 

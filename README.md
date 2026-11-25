@@ -3,9 +3,11 @@
 Beginner-focused Ansible Automation Platform sandbox automation for RHEL VMs
 on OpenShift Virtualization.
 
-> **Candidate implementation:** the supported EE has been inspected, but this
-> branch has not completed its OpenShift end-to-end test. Do not publish the
-> revised learner instructions or assume the new SSH flow is validated yet.
+> **VM lifecycle validated:** the pinned supported EE completed fresh VM
+> provisioning, inventory sync, automatic SSH/sudo access, stop/start and cleanup.
+> Registration, Timesync, and the lesson's separately created OpenShift
+> ServiceAccount credentials still need verification. The learning-path
+> transcription has not yet been rewritten into the final learner instructions.
 
 ## Repository layout
 
@@ -192,10 +194,12 @@ The normal test sequence is:
 1. Run `playbooks/ocp_vm_create.yml`.
 2. Sync the inventory source.
 3. Run `tests/playbooks/verify_ssh.yml` as a separate AAP job using only
-    `credential-ocp`. This proves a fresh EE can retrieve and use the identity
-    and that the image permits the sudo access required by the system roles.
+   `credential-ocp`. This proves a fresh EE can retrieve and use the identity
+   and that the image permits the sudo access required by the system roles.
 4. Run Stop VM, Start VM, then refresh inventory.
-5. Run Delete VM and confirm the VM, DataVolume, PVC, and both Secrets are gone.
+5. Repeat the separate SSH/sudo verification after restart.
+6. Run Delete VM and confirm the VM, DataVolume, PVC, and both Secrets are gone.
+7. Refresh inventory and confirm the generated host is removed.
 
 No oversized cloud-init fixture is required. Registration and Timesync are
 separate subsequent checks; the first provisioning test must not silently

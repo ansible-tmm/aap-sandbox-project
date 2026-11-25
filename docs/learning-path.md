@@ -19,7 +19,8 @@ VM experience for AAP 2.7 and OpenShift 4.22.22:
 
 > **Validation scope:** the normal VM lifecycle, inventory, SSH/sudo and cleanup
 > passed with both a user token and the namespace-scoped ServiceAccount token.
-> Registration is deferred, Timesync has not run, and the workflow-visualizer
+> Real registration and package installation must be verified before Timesync.
+> Neither RHEL exercise has run, and the workflow-visualizer
 > walkthrough below has not yet been executed as a Workflow Job Template.
 > Validation used API-launched component jobs, not a full manual UI walkthrough.
 > The retained provisioning screens and revised copy need final editorial UI
@@ -284,9 +285,10 @@ to configure for this revision. The exact tested image and collection versions
 are recorded in the [repository README](../README.md).
 
 The OpenShift ServiceAccount created in Lesson 1 is the only automation identity
-needed for the core VM exercise. The separate Red Hat registration account
-exercise remains deferred; it is not required to generate SSH keys or provision
-the VM.
+needed for the core VM exercise. Red Hat registration input setup is a separate
+remaining task: it is not needed to generate SSH keys or boot the VM, but
+registration must be verified before the package-management and Timesync
+exercises in the completed learning path.
 
 ### Create a dynamic inventory for OpenShift Virtualization
 
@@ -463,8 +465,9 @@ idles the VM, use Start again before running guest automation.
 
 ### Follow-on RHEL configuration exercises
 
-> **Not yet validated:** registration is deferred, and Timesync has not been
-> executed. These settings describe the retained playbooks, not completed tests.
+> **Not yet validated:** registration, package access and Timesync still need
+> execution. Registration must be verified first. These settings describe the
+> retained playbooks, not completed RHEL tests.
 
 When the follow-on exercises are ready, use the same project, inventory,
 supported EE and `credential-ocp`:
@@ -478,7 +481,7 @@ Both playbooks retrieve the generated SSH identity automatically. The supplied
 image's passwordless sudo access has been verified; no additional Machine
 credential is required.
 
-**Registration remains deferred.** `rhel_register.yml` still consumes
+**Registration is required and pending validation.** `rhel_register.yml` consumes
 `activation_key` and `organization_id` and uses `redhat.rhel_system_roles.rhc`.
 The original Hybrid Cloud Console client-ID/client-secret mapping has not been
 verified and is not repeated here as an instruction. Authentication input setup
@@ -487,8 +490,9 @@ secrets or paste them into the guide.
 
 The planned Timesync exercise uses `redhat.rhel_system_roles.timesync` with
 `0.rhel.pool.ntp.org` preferred and `1.rhel.pool.ntp.org` as a pool.
-Package/repository requirements and the role execution still need validation;
-do not assume registration is either required or unnecessary until checked.
+Verify registration and package installation first, then validate this role.
+A preinstalled Chrony package alone does not prove that registration or
+repository access works.
 
 ### Build a Workflow Job Template
 
@@ -527,8 +531,9 @@ The explicit inventory node runs **after** provisioning, so the new VM can be
 discovered. It must select the source `inventory-virt-sandbox`, not just its
 parent inventory. Child templates supply their own EE and credentials.
 
-After the RHEL exercises are verified, extend the graph with two more
-**Template** nodes, each connected with **Run on success**:
+The completed learning path requires the following four-node graph. After the
+RHEL exercises are verified, add two more **Template** nodes, each connected
+with **Run on success**:
 
 ```text
 Create VM

@@ -4,10 +4,12 @@ Recorded November 25, 2026. **The normal VM lifecycle passed on commit
 `d11a722`, using the pinned AAP 2.7 supported EE and OpenShift 4.22.22.**
 
 The namespace-scoped OpenShift ServiceAccount credential flow also passed
-without playbook changes. Registration is deferred; Timesync and the final
-workflow execution remain untested. The verified learner-copy sections have
-been rewritten; provisioning-screen UI review and the deferred sections remain
-pending before publication.
+without playbook changes. Registration, Timesync and the final workflow
+execution remain untested. The latest user decision requires real registration
+and proven package access before Timesync, using one retained test environment.
+See [implementation handoff](implementation-handoff.md). The verified
+learner-copy sections have been rewritten; UI review and RHEL/workflow
+validation remain pending before publication.
 
 ## Completed preflight checks for the first candidate
 
@@ -231,8 +233,12 @@ the sandbox. Normal Delete VM does not remove that reusable automation identity.
 
 - Reconcile the original service-account client-ID/secret instructions with
   the registration role's activation-key/organization-ID inputs, then verify
-  registration with approved credentials. This remains deferred by request.
-- Execute the Timesync system role and final learner workflow.
+  fresh registration with approved credentials. Registration was deferred
+  during the core tests but is now required for the next phase.
+- Prove package/repository access by installing a small approved package that
+  was not already present; do not infer it from preinstalled packages.
+- Execute Timesync and the actual four-node learner workflow on the same
+  retained VM. Unregister the test consumer before final VM cleanup.
 - Complete the provisioning-screen UI review and the remaining role/workflow
   validation before publishing the revised learner instructions.
 

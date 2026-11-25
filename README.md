@@ -6,9 +6,10 @@ on OpenShift Virtualization.
 > **VM lifecycle validated:** the pinned supported EE completed fresh VM
 > provisioning, inventory sync, automatic SSH/sudo access, stop/start and cleanup.
 > Both user-token and namespace-scoped ServiceAccount authentication passed.
-> The guide now reflects the verified core flow. Registration is deferred;
-> Timesync, workflow execution and the final provisioning-screen UI review
-> remain pending before publication.
+> The next phase must verify real RHEL registration and package installation
+> before Timesync. RHEL/workflow execution and final UI review remain pending.
+> See the [clean-context handoff](docs/implementation-handoff.md) for the
+> single-environment implementation plan.
 
 ## Repository layout
 
@@ -19,6 +20,7 @@ on OpenShift Virtualization.
 │   └── collections.yml           # Explicit developer dependency manifest
 ├── docs/
 │   ├── learning-path.md          # Published-guide transcription and revisions
+│   ├── implementation-handoff.md # Remaining registration-first specification
 │   └── validation.md             # Recorded checks and remaining test gate
 ├── playbooks/                    # Select these paths in AAP job templates
 │   ├── ocp_vm_create.yml
@@ -210,9 +212,10 @@ The normal test sequence is:
 6. Run Delete VM and confirm the VM, DataVolume, PVC, and both Secrets are gone.
 7. Refresh inventory and confirm the generated host is removed.
 
-No oversized cloud-init fixture is required. Registration and Timesync are
-separate subsequent checks; the first provisioning test must not silently
-change Red Hat registration or guest time configuration.
+No oversized cloud-init fixture is required. The completed core test did not
+register the guest or configure Timesync. The next phase must verify registration,
+prove package installation, then run Timesync and the full workflow, retaining
+one environment until review and final unregistration/cleanup are finished.
 
 ## Structure guidance
 

@@ -11,6 +11,35 @@ retained environment; see below. See [implementation handoff](implementation-han
 The verified learner-copy sections have been rewritten; UI review and
 publication remain pending.
 
+## Learner-facing UI review
+
+Recorded November 25, 2026, against the live AAP 2.7 platform UI (Controller
+web console), read-only: no objects created, edited or launched; the workflow
+was reloaded after the wizard checks and still showed 4 nodes with the
+expected edges.
+
+| Check | Result |
+| --- | --- |
+| Menu path `Automation Execution > Infrastructure > Credential Types` | Matches the navigation exactly |
+| Create-credential-type form | `Name *`, `Description`, `Input configuration` (YAML/JSON), `Injector configuration` (YAML/JSON), buttons `Create credential type` / `Cancel` |
+| Credential create form with the registration type | Shows exactly `Red Hat organization ID` and `Red Hat activation key`; type listed as `Red Hat Registration (Activation Key)` |
+| Workflow job template create form | `Name *`, `Organization`, `Inventory`, `Limit`, and `Enable concurrent jobs` all present verbatim |
+| Workflow visualizer | `Add step` and `Save` buttons; node types `Job Template`, `Workflow Job Template`, `Approval`, `Project Sync`, `Inventory Source Sync`, `Management Job`; `Inventory source *` picker on the sync node; canvas edge labels `Run on success` / `Run always`; root step wizard goes straight to Review (edge Always) |
+| Inventory source variables | Structure matches the guide's `namespaces` / `label_selector` / `host_format` block; the bench uses a narrower `label_selector` including `app.kubernetes.io/name=aap-lab-validation` |
+| Template credential attachments | RHEL Register carries both the OpenShift and the registration credential; Timesync carries only the OpenShift credential — matching the revised guide text |
+
+Three wording mismatches were found and fixed in `learning-path.md`:
+
+1. Create actions live behind the toolbar **Actions** dropdown (Credential
+   Types) or **Actions > Create template** (Templates), not as direct
+   toolbar buttons.
+2. The sync node type is called **Inventory Source Sync**, not
+   "Inventory Sync".
+3. The job-template node type is **Job Template**, not "Template".
+
+The transcribed sections of the guide (original published lesson copy) were
+intentionally left unchanged. No further UI work is outstanding.
+
 ## Completed preflight checks for the first candidate
 
 | Check | Result |

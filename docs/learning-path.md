@@ -411,7 +411,8 @@ merely because its data is base64-encoded.
 ### Create the four VM lifecycle templates
 
 1. Go to **Automation Execution > Templates**.
-2. From **Create template**, choose **Create job template**.
+2. Open the toolbar **Actions** dropdown, then **Create template**, and choose
+   **Create job template**.
 3. Use these common settings:
    - Job type: Run
    - Inventory: inventory-sandbox
@@ -511,7 +512,8 @@ by default; unregistering at cleanup removes both.
 2. No built-in AAP credential type supplies these values, and the built-in
    **Insights** type cannot be attached to job templates. Create the minimal
    custom type once: go to **Automation Execution > Infrastructure >
-   Credential Types** and select **Create credential type**, pasting the
+   Credential Types**, open the toolbar **Actions** dropdown and select
+   **Create credential type**, pasting the
    contents of
    [`docs/credential-type-redhat-registration.yml`](https://github.com/ansible-tmm/aap-sandbox-project/blob/lab/supported-ee-validation/docs/credential-type-redhat-registration.yml)
    from the project. It defines a secret `activation_key` field and a plain
@@ -549,7 +551,8 @@ Create VM → inventory-virt-sandbox sync
 ```
 
 1. Go to **Automation Execution > Templates**.
-2. From **Create template**, choose **Create workflow job template**.
+2. Open the toolbar **Actions** dropdown, then **Create template**, and choose
+   **Create workflow job template**.
 3. Enter:
    - Name: workflow-sandbox-rhel
    - Organization: Default
@@ -558,11 +561,11 @@ Create VM → inventory-virt-sandbox sync
    - Enable concurrent jobs: Unchecked
 4. Select **Create workflow job template**. The workflow visualizer opens.
 5. Select **Add step**:
-   - Node type: Template
+   - Node type: Job Template (the default)
    - Job template: Create VM
    - Finish the node wizard. The root's edge type is Always.
-6. From the Create VM node, add a subsequent step:
-   - Node type: Inventory Sync
+6. Select the Create VM node, then add a subsequent step:
+   - Node type: Inventory Source Sync
    - Inventory source: inventory-virt-sandbox
    - Edge type: Run on success
    - Finish the node wizard.

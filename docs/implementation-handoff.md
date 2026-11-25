@@ -215,6 +215,18 @@ Then delete VM/storage/Secrets, refresh inventory, remove temporary identity
 resources, restore AAP associations and verify cleanup independently.
 Agree whether to retain the AAP test bench for handover.
 
+## Deferred follow-ups
+
+- Configuration-as-code bootstrap for the AAP test bench (credential types,
+  project, inventory + source, credentials, job templates, workflow graph with
+  `success_nodes` edges) so a full teardown is cheap to rebuild. Decision:
+  **not** `awx.awx` (treated as deprecated by this project); use the current
+  `ansible.platform` / `ansible.controller` module set when picked up. Also
+  covers the OCP ServiceAccount + RoleBinding + TokenRequest (core
+  `.../serviceaccounts/<sa>/token` path) and the dead
+  `activation_key`/`organization_id` refs in inventory 3's `variables` field.
+  Secrets stay out of Git; the playbook defines shape only.
+
 ## Context discipline
 
 Keep a concise phase checkpoint and update `docs/validation.md`. Return filtered

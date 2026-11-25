@@ -466,8 +466,9 @@ idles the VM, use Start again before running guest automation.
 ### Follow-on RHEL configuration exercises
 
 > **Not yet validated:** registration, package access and Timesync still need
-> execution. Registration must be verified first. These settings describe the
-> retained playbooks, not completed RHEL tests.
+> execution. Registration must be verified first. The input setup below is the
+> settled design; the execution results are recorded in
+> [validation results](validation.md).
 
 When the follow-on exercises are ready, use the same project, inventory,
 supported EE and `credential-ocp`:
@@ -481,12 +482,46 @@ Both playbooks retrieve the generated SSH identity automatically. The supplied
 image's passwordless sudo access has been verified; no additional Machine
 credential is required.
 
-**Registration is required and pending validation.** `rhel_register.yml` consumes
-`activation_key` and `organization_id` and uses `redhat.rhel_system_roles.rhc`.
-The original Hybrid Cloud Console client-ID/client-secret mapping has not been
-verified and is not repeated here as an instruction. Authentication input setup
-must be finalized before enabling this exercise. Do not commit registration
-secrets or paste them into the guide.
+#### Create a Red Hat registration credential
+
+`rhel_register.yml` registers the guest with an activation key and
+organization ID — the method recommended by the official RHEL system-roles
+documentation. Registering also connects the guest to Red Hat Lightspeed
+(Insights) by default; unregistering at cleanup removes both.
+
+1. In the [Red Hat Hybrid Cloud Console](https://console.redhat.com/), go to
+   **Subscriptions > Activation Keys** and create or select an activation key
+   for your organization. Note the key name and the numeric **organization ID**
+   shown on the same screen.
+
+   > **Scope note:** an activation key registers a new consumer in your Red Hat
+   > organization and connects it to Red Hat Lightspeed. This exercise
+   > intentionally uses those defaults and unregisters the test consumer during
+   > cleanup.
+
+2. In the Ansible Automation Platform sidebar, go to **Automation Execution >
+   Infrastructure > Credential Types** and select **Create credential type**.
+3. Instead of typing the configuration, paste the contents of
+   [`docs/credential-type-redhat-registration.yml`](https://github.com/ansible-tmm/aap-sandbox-project/blob/lab/supported-ee-validation/docs/credential-type-redhat-registration.yml)
+   from the project, or copy the equivalent fields: a plain
+   `organization_id` input and a secret `activation_key` input, both injected
+   as extra variables of the same names.
+
+   The activation key field is marked secret, so AAP masks it in the UI and
+   API responses and never writes it to job output.
+
+4. Go to **Infrastructure > Credentials** and select **Create credential**:
+   - Name: credential-rhel-registration
+   - Credential type: Red Hat Registration (Activation Key)
+   - Red Hat organization ID: your numeric organization ID
+   - Red Hat activation key: paste the activation key here
+5. Select **Create credential**.
+
+Attach **both** `credential-ocp` and `credential-rhel-registration` to the
+RHEL Register and RHEL Timesync job templates: `credential-ocp` supplies the
+guest's SSH identity and API access; the registration credential supplies the
+activation key and organization ID. Never commit registration secrets or paste
+them into this guide.
 
 The planned Timesync exercise uses `redhat.rhel_system_roles.timesync` with
 `0.rhel.pool.ntp.org` preferred and `1.rhel.pool.ntp.org` as a pool.
@@ -543,8 +578,8 @@ Create VM
 ```
 
 Use **RHEL Register** for the third node and **RHEL Timesync** for the fourth.
-Save the entire graph. Do not launch this four-node extension before the
-registration inputs and both RHEL exercises have been validated.
+Save the entire graph. Do not launch this four-node extension before both RHEL
+exercises have been validated.
 
 This walkthrough follows the
 [AAP 2.7 workflow visualizer documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.7/develop-con_controller_workflow_visualizer).

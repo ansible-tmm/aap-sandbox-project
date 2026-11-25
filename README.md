@@ -21,6 +21,7 @@ on OpenShift Virtualization.
 ├── docs/
 │   ├── learning-path.md          # Published-guide transcription and revisions
 │   ├── implementation-handoff.md # Remaining registration-first specification
+│   ├── credential-type-redhat-registration.yml # Importable AAP credential type
 │   └── validation.md             # Recorded checks and remaining test gate
 ├── playbooks/                    # Select these paths in AAP job templates
 │   ├── ocp_vm_create.yml
@@ -96,9 +97,21 @@ Learners retain this identity across VM create/delete cycles; our temporary
 test identity was removed only as validation cleanup.
 
 `rhel_register.yml` still consumes `activation_key` and `organization_id`
-exactly as before. Their authentication flow remains under review; this
-revision does not reinterpret service-account credentials or change the role's
-authentication parameters. Supply real registration secrets securely, not in Git.
+exactly as before. This is the method recommended by the official RHEL
+system-roles documentation, mapped to `redhat.rhel_system_roles.rhc` as
+`rhc_auth.activation_keys.keys` and `rhc_organization`. Supply them through a
+credential of the minimal custom type defined in
+[docs/credential-type-redhat-registration.yml](docs/credential-type-redhat-registration.yml):
+the activation key is a secret field that AAP masks and injects under the
+existing variable name. Never put registration secrets in Git, inventory
+variables, or job output.
+
+Registering with the `rhc` role follows the role defaults: it installs
+`insights-client` and `rhc`, and connects the guest to Red Hat Lightspeed
+(Insights) with auto-update and remediation enabled. Unregistering the guest
+(`rhc_state: absent`) removes both the RHSM consumer and the Lightspeed
+connection. Registration execution is still pending validation; see
+[docs/validation.md](docs/validation.md).
 
 For `inventory-virt-sandbox`, select the supported EE, the OpenShift Virtualization
 source, and `credential-ocp`. Source variables:

@@ -242,6 +242,61 @@ the sandbox. Normal Delete VM does not remove that reusable automation identity.
 - Complete the provisioning-screen UI review and the remaining role/workflow
   validation before publishing the revised learner instructions.
 
+## Registration-first phase checkpoint
+
+Recorded November 25, 2026, before the retained-environment runs. Inputs and
+scope are settled; execution below is pending until the retained VM exists.
+
+### Registration inputs: settled
+
+Official RHEL 9 system-roles documentation and the upstream role README
+(certified content is not on public Galaxy; the EE supplies
+`redhat.rhel_system_roles` 1.120.5) confirm:
+
+- Activation key + organization ID is the documented recommended method and
+  maps exactly to the existing playbook variables:
+  `activation_key` → `rhc_auth.activation_keys.keys`,
+  `organization_id` → `rhc_organization`. No playbook authentication change is
+  needed. The original Hybrid Cloud Console client-ID/client-secret idea
+  remains unverified and is not part of the design.
+- Role defaults apply: `rhc_state: present`, `rhc_insights.state: present`
+  (Red Hat Lightspeed connection), `rhc_insights.autoupdate: true`,
+  `rhc_insights.remediation: present`. Registering installs
+  `insights-client`/`rhc` and creates a Lightspeed inventory entry.
+- Credentials are supplied through a minimal custom credential type
+  ([docs/credential-type-redhat-registration.yml](credential-type-redhat-registration.yml)):
+  plain `organization_id` plus a secret `activation_key` field, both injected
+  as extra variables under the existing names. Learners enter the values in
+  the AAP form; secrets never pass through Git, chat, or job output. Built-in
+  AAP credential types do not inject these variable names; the built-in type
+  list will still be inspected on the instance before creating the custom one.
+
+### Approved scope for the retained environment
+
+User-approved on November 25, 2026:
+
+- OpenShift (namespaced only): one ServiceAccount + RoleBinding to the
+  existing `edit` ClusterRole + one 30-day token; one VM `rhel9-server` with
+  DataVolume, 30 GiB PVC, and the two generated Secrets. Namespace storage
+  moves from the 2 PVC / 18 GiB baseline to 3 PVC / 48 GiB while retained.
+- External registration: one new test consumer in the selected Red Hat
+  organization, keeping the role's Lightspeed defaults; entitlement proven by
+  installing `tree` (chosen because it is small and absent on the base image);
+  explicit unregistration of only that consumer before final VM deletion.
+- AAP: reuse the existing bench (Default EE 2, Project 8, Inventory 3,
+  templates 9–13, user-token credential 5). Add the custom credential type,
+  the registration credential, the Register/Timesync templates and the
+  four-node workflow.
+- Create-rerun reconciliation on the retained VM is verified by inspection
+  (merge-style `state: present`; identity Secrets reused, never rotated) and
+  then by an actual Create rerun before the workflow test.
+
+### Pending in this phase
+
+- Retained-environment runs: fresh Create, baseline registration-state check,
+  real registration, `tree` install, Timesync, Create rerun, four-node
+  workflow, UI review, final unregistration/cleanup.
+
 ## Guide revision
 
 The working learning path now uses the verified core experience rather than

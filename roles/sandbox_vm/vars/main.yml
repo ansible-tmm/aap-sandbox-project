@@ -1,0 +1,6 @@
+---
+__sandbox_vm_labels:
+  app: "{{ sandbox_vm_name }}"
+  app.kubernetes.io/name: "{{ sandbox_vm_name }}"
+  app.kubernetes.io/part-of: aap-sandbox-project
+  app.kubernetes.io/managed-by: ansible

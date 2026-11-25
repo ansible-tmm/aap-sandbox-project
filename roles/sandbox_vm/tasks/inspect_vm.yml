@@ -1,0 +1,20 @@
+---
+- name: Inspect | Read the existing VM
+  kubernetes.core.k8s_info:
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_name }}"
+  register: __sandbox_vm_existing
+  no_log: true
+
+- name: Inspect | Refuse to modify a VM not managed by this project
+  ansible.builtin.assert:
+    that:
+      - >-
+        __sandbox_vm_existing.resources | length == 0 or
+        (__sandbox_vm_existing.resources[0].metadata.labels | default({})).get(
+          'app.kubernetes.io/part-of', '') == 'aap-sandbox-project'
+    fail_msg: >-
+      A VM with this name already exists but is not managed by this project.
+      Choose another vm_name; existing VMs and boot disks are not adopted.

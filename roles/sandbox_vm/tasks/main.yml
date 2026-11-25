@@ -1,0 +1,31 @@
+---
+- name: Validate the sandbox operation
+  ansible.builtin.assert:
+    that:
+      - sandbox_vm_action in ['create', 'delete', 'start', 'stop', 'check_inventory', 'prepare_ssh', 'cleanup_ssh']
+      - sandbox_vm_name | length > 0
+      - sandbox_vm_name | length <= 53
+      - sandbox_vm_name is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+      - sandbox_vm_namespace | length > 0
+      - sandbox_vm_namespace | length <= 63
+      - sandbox_vm_namespace is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+    fail_msg: Set vm_name and ocp_namespace to valid sandbox resource names.
+
+- name: Require an explicitly approved normal run
+  ansible.builtin.assert:
+    that:
+      - not ansible_check_mode
+    fail_msg: >-
+      This lab does not implement check mode for provisioning and temporary SSH
+      identities. Review the playbook and resource scope before a normal run.
+
+- name: Require the intended OpenShift credential rather than ambient cluster access
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.env', 'K8S_AUTH_HOST') | length > 0
+      - lookup('ansible.builtin.env', 'K8S_AUTH_API_KEY') | length > 0
+    fail_msg: Attach credential-ocp to this job; do not put its token in inventory variables.
+  when: sandbox_vm_action not in ['check_inventory', 'cleanup_ssh']
+
+- name: Run the sandbox operation
+  ansible.builtin.include_tasks: "{{ sandbox_vm_action }}.yml"

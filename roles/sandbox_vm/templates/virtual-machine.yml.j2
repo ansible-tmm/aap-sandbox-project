@@ -1,0 +1,79 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: "{{ sandbox_vm_name }}"
+  namespace: "{{ sandbox_vm_namespace }}"
+  labels:
+{{ __sandbox_vm_labels | to_nice_yaml(indent=2) | indent(4, true) }}
+spec:
+  runStrategy: Manual
+  dataVolumeTemplates:
+    - apiVersion: cdi.kubevirt.io/v1beta1
+      kind: DataVolume
+      metadata:
+        name: "{{ sandbox_vm_name }}"
+        labels:
+{{ __sandbox_vm_labels | to_nice_yaml(indent=2) | indent(10, true) }}
+      spec:
+        sourceRef:
+          kind: DataSource
+          name: "{{ sandbox_vm_source_name }}"
+          namespace: "{{ sandbox_vm_source_namespace }}"
+        storage:
+          resources:
+            requests:
+              storage: "{{ sandbox_vm_disk_size }}"
+  template:
+    metadata:
+      labels:
+{{ __sandbox_vm_labels | to_nice_yaml(indent=2) | indent(8, true) }}
+        kubevirt.io/domain: "{{ sandbox_vm_name }}"
+        kubevirt.io/size: small
+    spec:
+      architecture: amd64
+      domain:
+        cpu:
+          cores: {{ sandbox_vm_cpu_cores }}
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+            - name: cloudinitdisk
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+              model: virtio
+          networkInterfaceMultiqueue: true
+          rng: {}
+        features:
+          acpi: {}
+          smm:
+            enabled: true
+        firmware:
+          bootloader:
+            efi: {}
+        machine:
+          type: pc-q35-rhel9.2.0
+        memory:
+          guest: "{{ sandbox_vm_memory }}"
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 180
+      tolerations:
+        - effect: NoSchedule
+          key: sandbox-cnv
+          operator: Exists
+      volumes:
+        - name: rootdisk
+          dataVolume:
+            name: "{{ sandbox_vm_name }}"
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            userDataSecretRef:
+              name: "{{ sandbox_vm_cloudinit_secret_name }}"

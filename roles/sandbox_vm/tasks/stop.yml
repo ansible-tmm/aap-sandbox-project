@@ -1,0 +1,18 @@
+---
+- name: Stop | Inspect the VM
+  ansible.builtin.import_tasks: inspect_vm.yml
+
+- name: Stop | Require an existing VM with Manual lifecycle control
+  ansible.builtin.assert:
+    that:
+      - __sandbox_vm_existing.resources | length == 1
+      - __sandbox_vm_existing.resources[0].spec.runStrategy | default('') == 'Manual'
+    fail_msg: Create the sandbox VM first; this lab preserves runStrategy Manual.
+
+- name: Stop | Stop through the certified lifecycle module
+  redhat.openshift_virtualization.kubevirt_vm:
+    name: "{{ sandbox_vm_name }}"
+    namespace: "{{ sandbox_vm_namespace }}"
+    state: stopped
+    wait: true
+    wait_timeout: "{{ sandbox_vm_ready_timeout }}"

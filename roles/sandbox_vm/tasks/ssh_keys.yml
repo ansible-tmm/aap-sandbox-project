@@ -1,0 +1,112 @@
+---
+- name: Keys | Look for the persistent SSH identity
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_ssh_secret_name }}"
+  register: __sandbox_vm_ssh_secret
+  no_log: true
+
+- name: Keys | Refuse to replace an unrelated SSH Secret
+  ansible.builtin.assert:
+    that:
+      - >-
+        __sandbox_vm_ssh_secret.resources | length == 0 or
+        (__sandbox_vm_ssh_secret.resources[0].metadata.labels | default({})).get(
+          'app.kubernetes.io/part-of', '') == 'aap-sandbox-project'
+    fail_msg: The SSH Secret name is already used by an unrelated resource.
+
+- name: Keys | Do not rotate the identity of an existing VM
+  ansible.builtin.assert:
+    that:
+      - __sandbox_vm_existing.resources | length == 0 or __sandbox_vm_ssh_secret.resources | length == 1
+    fail_msg: >-
+      The VM exists but its SSH Secret is missing. Restore the Secret or explicitly
+      recreate the disposable VM; generating a new key would not update its guest.
+
+- name: Keys | Generate and store the identity only on first creation
+  when: __sandbox_vm_ssh_secret.resources | length == 0
+  block:
+    - name: Keys | Create a private temporary directory in the EE
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: aap-sandbox-keygen-
+      register: __sandbox_vm_keygen_directory
+
+    - name: Keys | Generate the per-VM Ed25519 identity
+      ansible.builtin.command:
+        argv:
+          - ssh-keygen
+          - -q
+          - -t
+          - ed25519
+          - -N
+          - ""
+          - -C
+          - aap-sandbox-project
+          - -f
+          - "{{ __sandbox_vm_keygen_directory.path }}/identity"
+        creates: "{{ __sandbox_vm_keygen_directory.path }}/identity"
+      no_log: true
+
+    - name: Keys | Read the generated key files without logging them
+      ansible.builtin.slurp:
+        src: "{{ __sandbox_vm_keygen_directory.path }}/{{ item }}"
+      loop:
+        - identity
+        - identity.pub
+      register: __sandbox_vm_key_files
+      no_log: true
+
+    - name: Keys | Save the identity in its dedicated SSH Secret
+      redhat.openshift.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ sandbox_vm_ssh_secret_name }}"
+            namespace: "{{ sandbox_vm_namespace }}"
+            labels: "{{ __sandbox_vm_labels }}"
+          type: kubernetes.io/ssh-auth
+          data:
+            ssh-privatekey: "{{ __sandbox_vm_key_files.results[0].content }}"
+            ssh-publickey: "{{ __sandbox_vm_key_files.results[1].content }}"
+      no_log: true
+      diff: false
+  always:
+    - name: Keys | Remove generated files from the EE
+      ansible.builtin.file:
+        path: "{{ __sandbox_vm_keygen_directory.path }}"
+        state: absent
+      when: __sandbox_vm_keygen_directory.path is defined
+
+    - name: Keys | Discard the generated key-file results
+      ansible.builtin.set_fact:
+        __sandbox_vm_key_files: {}
+      no_log: true
+
+- name: Keys | Read the stored identity
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_ssh_secret_name }}"
+  register: __sandbox_vm_ssh_secret
+  no_log: true
+
+- name: Keys | Check the stored identity has both parts
+  ansible.builtin.assert:
+    that:
+      - __sandbox_vm_ssh_secret.resources | length == 1
+      - (__sandbox_vm_ssh_secret.resources[0].data | default({})).get('ssh-privatekey', '') | length > 0
+      - (__sandbox_vm_ssh_secret.resources[0].data | default({})).get('ssh-publickey', '') | length > 0
+    fail_msg: The SSH Secret is incomplete; it will not be automatically replaced.
+  no_log: true
+
+- name: Keys | Keep only the public key for cloud-init rendering
+  ansible.builtin.set_fact:
+    __sandbox_vm_public_key: "{{ __sandbox_vm_ssh_secret.resources[0].data['ssh-publickey'] | b64decode | trim }}"
+    __sandbox_vm_ssh_secret: {}
+  no_log: true

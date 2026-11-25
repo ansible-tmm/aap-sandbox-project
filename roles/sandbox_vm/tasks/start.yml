@@ -1,0 +1,47 @@
+---
+- name: Start | Inspect the VM
+  ansible.builtin.import_tasks: inspect_vm.yml
+
+- name: Start | Require an existing VM with Manual lifecycle control
+  ansible.builtin.assert:
+    that:
+      - __sandbox_vm_existing.resources | length == 1
+      - __sandbox_vm_existing.resources[0].spec.runStrategy | default('') == 'Manual'
+    fail_msg: Create the sandbox VM first; this lab preserves runStrategy Manual.
+
+- name: Start | Start through the certified lifecycle module
+  redhat.openshift_virtualization.kubevirt_vm:
+    name: "{{ sandbox_vm_name }}"
+    namespace: "{{ sandbox_vm_namespace }}"
+    state: started
+    wait: true
+    wait_timeout: "{{ sandbox_vm_ready_timeout }}"
+
+- name: Start | Wait for the address reported to dynamic inventory
+  kubernetes.core.k8s_info:
+    api_version: kubevirt.io/v1
+    kind: VirtualMachineInstance
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_name }}"
+  register: __sandbox_vm_instance
+  until:
+    - __sandbox_vm_instance.resources | length == 1
+    - >-
+      __sandbox_vm_instance.resources[0].status.interfaces | default([]) |
+      selectattr('name', 'equalto', 'default') |
+      selectattr('ipAddress', 'defined') |
+      map(attribute='ipAddress') | select | list | length > 0
+  retries: "{{ ((sandbox_vm_ready_timeout | int) / 5) | int }}"
+  delay: 5
+
+- name: Start | Add the VM to this job for authenticated SSH verification
+  ansible.builtin.add_host:
+    name: "{{ sandbox_vm_namespace }}-{{ sandbox_vm_name }}"
+    groups: sandbox_created_vm
+    ansible_host: >-
+      {{ __sandbox_vm_instance.resources[0].status.interfaces |
+         selectattr('name', 'equalto', 'default') |
+         selectattr('ipAddress', 'defined') |
+         map(attribute='ipAddress') | select | first }}
+    vm_name: "{{ sandbox_vm_name }}"
+    ocp_namespace: "{{ sandbox_vm_namespace }}"

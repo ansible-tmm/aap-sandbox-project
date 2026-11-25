@@ -1,0 +1,15 @@
+.ansible/
+.env
+.venv/
+__pycache__/
+*.pyc
+*.retry
+artifacts/
+
+# Credentials and generated SSH keys never belong in this project.
+*.key
+*.pem
+id_ed25519
+id_ed25519.pub
+id_rsa
+id_rsa.pub

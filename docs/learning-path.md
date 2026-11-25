@@ -2,14 +2,21 @@
 
 ## Snapshot information
 
-This is the baseline transcription of the Red Hat Developer learning path as
+This guide is based on a transcription of the Red Hat Developer learning path as
 published on **November 25, 2026**, captured on that date. It is not a recovered
 copy of the pages as they appeared at their original publication in May 2025.
 
-The published instructions, examples, variable names, execution environment,
-and job-template playbook assignments are preserved, including inconsistencies.
-No proposed fixes, supported-EE migration, or workflow walkthrough have been
-incorporated into this baseline.
+The original baseline transcription is preserved in Git commit `7f87ce6`.
+This working copy corrects the Lesson 3 Delete VM, Start VM, and Stop VM
+playbook assignments and uses the new `playbooks/` directory for all six
+job-template paths.
+
+> **Guide revision in progress:** the remaining published instructions below,
+> including the custom EE and manual SSH credential setup, are retained as
+> historical material pending the normal end-to-end test. They do not yet
+> describe the candidate Secret-managed SSH implementation.
+> See the [repository README](../README.md) for its current setup and validation
+> scope. Registration authentication remains under review.
 
 Transcription conventions:
 
@@ -394,7 +401,7 @@ Now we can create the VM:
    - Job type: Run
    - Inventory: inventory-sandbox
    - Project: aap-sandbox-project
-   - Playbook: ocp_vm_create.yml
+   - Playbook: playbooks/ocp_vm_create.yml
    - Execution environment: ee-sandbox
    - Credentials: credential-ocp
 4. Select **Create job template**.
@@ -410,7 +417,7 @@ Here's how to delete a RHEL VM:
    - Job type: Run
    - Inventory: inventory-sandbox
    - Project: aap-sandbox-project
-   - Playbook: ocp_vm_create.yml
+   - Playbook: playbooks/ocp_vm_delete.yml
    - Execution environment: ee-sandbox
    - Credentials: credential-ocp
 4. Select **Create job template**.
@@ -426,7 +433,7 @@ Now let’s add a job template to start the VM we created:
    - Job type: Run
    - Inventory: inventory-sandbox
    - Project: aap-sandbox-project
-   - Playbook: ocp_vm_create.yml
+   - Playbook: playbooks/ocp_vm_start.yml
    - Execution environment: ee-sandbox
    - Credentials: credential-ocp
 4. Select **Create job template**.
@@ -442,7 +449,7 @@ Here's how to stop the VM we created:
    - Job type: Run
    - Inventory: inventory-sandbox
    - Project: aap-sandbox-project
-   - Playbook: ocp_vm_create.yml
+   - Playbook: playbooks/ocp_vm_stop.yml
    - Execution environment: ee-sandbox
    - Credentials: credential-ocp
 4. Select **Create job template**.
@@ -458,7 +465,7 @@ Time to add a job template to register the RHEL VM to Red Hat:
    - Job type: Run
    - Inventory: inventory-sandbox
    - Project: aap-sandbox-project
-   - Playbook: rhel_register.yml
+   - Playbook: playbooks/rhel_register.yml
    - Execution environment: ee-sandbox
    - Credentials: credential-ssh
    - Privilege escalation: Checked
@@ -475,7 +482,7 @@ Configure your template:
    - Job type: Run
    - Inventory: inventory-sandbox
    - Project: aap-sandbox-project
-   - Playbook: rhel_timesync.yml
+   - Playbook: playbooks/rhel_timesync.yml
    - Execution environment: ee-sandbox
    - Credentials: credential-ssh
    - Privilege escalation: Checked

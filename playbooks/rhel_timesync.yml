@@ -1,0 +1,43 @@
+---
+- name: Check that inventory contains the selected VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sandbox_vm
+      sandbox_vm_action: check_inventory
+
+- name: Managing time synchronization
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Configure time synchronization using the generated SSH identity
+      block:
+        - name: Prepare SSH access
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: prepare_ssh
+
+        - name: Gather guest facts after SSH is ready
+          ansible.builtin.setup:
+
+        - name: Configure the RHEL NTP servers
+          ansible.builtin.include_role:
+            name: redhat.rhel_system_roles.timesync
+          vars:
+            timesync_ntp_servers:
+              - hostname: 0.rhel.pool.ntp.org
+                trusted: true
+                prefer: true
+                iburst: true
+              - hostname: 1.rhel.pool.ntp.org
+                pool: true
+                iburst: true
+      always:
+        - name: Remove the temporary SSH identity
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: cleanup_ssh

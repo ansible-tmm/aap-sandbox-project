@@ -1,0 +1,26 @@
+---
+- name: Provision and start the sandbox VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sandbox_vm
+      sandbox_vm_action: create
+
+- name: Verify SSH access to the new VM
+  hosts: sandbox_created_vm
+  gather_facts: false
+  tasks:
+    - name: Verify access and remove the temporary SSH identity
+      block:
+        - name: Prepare the connection using the stored SSH Secret
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: prepare_ssh
+      always:
+        - name: Remove the temporary SSH identity
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: cleanup_ssh

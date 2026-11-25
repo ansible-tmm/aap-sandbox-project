@@ -1,0 +1,17 @@
+---
+# Preserve the inventory variable names used by the learning path.
+sandbox_vm_name: "{{ vm_name | default('') }}"
+sandbox_vm_namespace: "{{ ocp_namespace | default('') }}"
+sandbox_vm_action: ""
+
+sandbox_vm_ssh_user: cloud-user
+sandbox_vm_ssh_secret_name: "{{ sandbox_vm_name }}-ssh"
+sandbox_vm_cloudinit_secret_name: "{{ sandbox_vm_name }}-cloudinit"
+
+sandbox_vm_cpu_cores: 1
+sandbox_vm_memory: 2Gi
+sandbox_vm_disk_size: 30Gi
+sandbox_vm_source_name: rhel9
+sandbox_vm_source_namespace: openshift-virtualization-os-images
+sandbox_vm_ready_timeout: 900
+sandbox_vm_ssh_timeout: 300

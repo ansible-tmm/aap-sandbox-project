@@ -1,0 +1,12 @@
+---
+# Already included in the pinned AAP 2.7 supported EE.
+# This is an explicit developer-install manifest, not an AAP project-sync hook.
+collections:
+  - name: redhat.openshift
+    version: 6.0.0
+  - name: redhat.openshift_virtualization
+    version: 2.3.0
+  - name: kubernetes.core
+    version: 6.4.0
+  - name: redhat.rhel_system_roles
+    version: 1.120.5

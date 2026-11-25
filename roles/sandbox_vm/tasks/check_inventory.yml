@@ -1,0 +1,8 @@
+---
+- name: Inventory | Require the selected VM in the synced inventory
+  ansible.builtin.assert:
+    that:
+      - sandbox_vm_namespace ~ '-' ~ sandbox_vm_name in groups['all']
+    fail_msg: >-
+      The selected VM is missing from this inventory. Create and start the VM,
+      then sync inventory-virt-sandbox before running guest automation.

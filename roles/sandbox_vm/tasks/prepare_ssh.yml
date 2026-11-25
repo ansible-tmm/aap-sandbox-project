@@ -1,0 +1,69 @@
+---
+- name: SSH | Restrict guest automation to the selected inventory VM
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == sandbox_vm_namespace ~ '-' ~ sandbox_vm_name
+      - ansible_host is defined
+    fail_msg: >-
+      Sync inventory-virt-sandbox and target its default namespace-name host for
+      vm_name. This playbook will not connect to unrelated inventory hosts.
+
+- name: SSH | Read the private identity using the OpenShift credential
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_ssh_secret_name }}"
+  delegate_to: localhost
+  become: false
+  register: __sandbox_vm_connection_secret
+  no_log: true
+
+- name: SSH | Require the identity created with this VM
+  ansible.builtin.assert:
+    that:
+      - __sandbox_vm_connection_secret.resources | length == 1
+      - >-
+        (__sandbox_vm_connection_secret.resources[0].metadata.labels | default({})).get(
+          'app.kubernetes.io/part-of', '') == 'aap-sandbox-project'
+      - (__sandbox_vm_connection_secret.resources[0].data | default({})).get('ssh-privatekey', '') | length > 0
+    fail_msg: Create the VM first; its managed SSH Secret is missing or incomplete.
+  no_log: true
+
+- name: SSH | Create a private temporary directory in this EE
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: aap-sandbox-ssh-
+  delegate_to: localhost
+  become: false
+  register: __sandbox_vm_ssh_workspace
+
+- name: SSH | Stage the identity outside project and artifact directories
+  ansible.builtin.copy:
+    content: "{{ __sandbox_vm_connection_secret.resources[0].data['ssh-privatekey'] | b64decode }}"
+    dest: "{{ __sandbox_vm_ssh_workspace.path }}/identity"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  no_log: true
+  diff: false
+
+- name: SSH | Configure this host's connection without caching credentials
+  # These are Ansible connection variables, not role-specific inputs.
+  ansible.builtin.set_fact:
+    ansible_connection: ssh
+    ansible_user: "{{ sandbox_vm_ssh_user }}"
+    ansible_host_key_checking: true
+    ansible_ssh_private_key_file: "{{ __sandbox_vm_ssh_workspace.path }}/identity" # noqa var-naming[no-role-prefix]
+    ansible_ssh_common_args: >- # noqa var-naming[no-role-prefix]
+      -o IdentitiesOnly=yes
+      -o StrictHostKeyChecking=accept-new
+      -o UserKnownHostsFile={{ __sandbox_vm_ssh_workspace.path }}/known_hosts
+    __sandbox_vm_connection_secret: {}
+    cacheable: false
+
+- name: SSH | Wait for an authenticated guest connection
+  ansible.builtin.wait_for_connection:
+    timeout: "{{ sandbox_vm_ssh_timeout }}"
+    sleep: 5
+  become: false

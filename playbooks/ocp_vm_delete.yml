@@ -1,0 +1,8 @@
+---
+- name: Delete the sandbox VM and its generated Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sandbox_vm
+      sandbox_vm_action: delete

@@ -1,0 +1,74 @@
+---
+- name: Create | Inspect the VM name
+  ansible.builtin.import_tasks: inspect_vm.yml
+
+- name: Create | Check for existing storage before creating a new VM
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_name }}"
+  loop:
+    - api_version: cdi.kubevirt.io/v1beta1
+      kind: DataVolume
+    - api_version: v1
+      kind: PersistentVolumeClaim
+  register: __sandbox_vm_existing_storage
+  when: __sandbox_vm_existing.resources | length == 0
+
+- name: Create | Refuse to attach an existing disk to a new VM
+  ansible.builtin.assert:
+    that:
+      - item.resources | length == 0
+    fail_msg: >-
+      Storage with this VM name already exists. Choose a new vm_name or review
+      the existing storage explicitly; this playbook will not reuse its contents.
+  loop: "{{ __sandbox_vm_existing_storage.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.kind }}"
+  when: not (item.skipped | default(false))
+
+- name: Create | Read the cloud-init Secret before updating it
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ sandbox_vm_namespace }}"
+    name: "{{ sandbox_vm_cloudinit_secret_name }}"
+  register: __sandbox_vm_cloudinit_secret
+  no_log: true
+
+- name: Create | Refuse to replace an unrelated cloud-init Secret
+  ansible.builtin.assert:
+    that:
+      - >-
+        __sandbox_vm_cloudinit_secret.resources | length == 0 or
+        (__sandbox_vm_cloudinit_secret.resources[0].metadata.labels | default({})).get(
+          'app.kubernetes.io/part-of', '') == 'aap-sandbox-project'
+    fail_msg: The cloud-init Secret name is already used by an unrelated resource.
+
+- name: Create | Ensure a persistent SSH identity
+  ansible.builtin.import_tasks: ssh_keys.yml
+
+- name: Create | Store cloud-init with the public key only
+  redhat.openshift.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ sandbox_vm_cloudinit_secret_name }}"
+        namespace: "{{ sandbox_vm_namespace }}"
+        labels: "{{ __sandbox_vm_labels }}"
+      type: Opaque
+      data:
+        userdata: "{{ lookup('ansible.builtin.template', 'cloud-init.yml.j2') | b64encode }}"
+  no_log: true
+  diff: false
+
+- name: Create | Provision the VM with Manual run strategy
+  redhat.openshift.k8s:
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'virtual-machine.yml.j2') | from_yaml }}"
+
+- name: Create | Explicitly start the VM and discover its address
+  ansible.builtin.import_tasks: start.yml

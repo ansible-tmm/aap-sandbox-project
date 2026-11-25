@@ -1,0 +1,40 @@
+---
+- name: Check that inventory contains the selected VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sandbox_vm
+      sandbox_vm_action: check_inventory
+
+- name: Register RHEL using rhc system role
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Register the VM using its generated SSH identity
+      block:
+        - name: Prepare SSH access
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: prepare_ssh
+
+        - name: Gather guest facts after SSH is ready
+          ansible.builtin.setup:
+
+        - name: Register using the existing activation key and organization ID variables
+          ansible.builtin.include_role:
+            name: redhat.rhel_system_roles.rhc
+          vars:
+            rhc_auth:
+              activation_keys:
+                keys:
+                  - "{{ activation_key }}"
+            rhc_organization: "{{ organization_id }}"
+      always:
+        - name: Remove the temporary SSH identity
+          ansible.builtin.include_role:
+            name: sandbox_vm
+          vars:
+            sandbox_vm_action: cleanup_ssh

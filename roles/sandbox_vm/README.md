@@ -88,8 +88,7 @@ guest-agent report and leave an immediate inventory sync without `ansible_host`.
 - Unmanaged name collisions are refused. Existing unmanaged lab VMs require
   an explicitly reviewed migration or a new VM name.
 - Check mode is deliberately unsupported and fails before operations.
-- Fresh VM creation, persisted-key retrieval, guest SSH/sudo access, stop/start
-  and complete cleanup passed the approved normal-path test on the pinned EE
-  and supplied RHEL 9 image with both a user token and a namespace-edit
-  ServiceAccount token. See [validation results](../../docs/validation.md).
-  This does not validate other images or external Red Hat registration.
+- Use the supplied RHEL 9 image and supported EE; other images can require
+  different guest users, sudo configuration, or guest-agent setup.
+- Delete does not unregister RHEL or disconnect Red Hat Lightspeed. Complete
+  unregistration before removing a registered guest.

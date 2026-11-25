@@ -1,39 +1,12 @@
 # Explore Ansible Automation Platform in a ready-to-use sandbox
 
-## Revision status and sources
+Use Ansible Automation Platform 2.7 and OpenShift Virtualization to provision
+and configure a RHEL VM with automatically managed SSH identities.
 
-This guide is based on a transcription of the Red Hat Developer learning path as
-published on **November 25, 2026**, captured on that date. It is not a recovered
-copy of the pages as they appeared at their original publication in May 2025.
+The linked interactive recordings may show an older setup; follow the written
+instructions below for the supported execution environment and credentials.
 
-The original baseline transcription, with key material replaced by placeholders,
-is preserved in Git commit `7f87ce6`. This working draft updates the verified
-VM experience for AAP 2.7 and OpenShift 4.22.22:
-
-- Use the existing default supported EE, not a custom image.
-- Keep the one-time OpenShift ServiceAccount and namespace `edit` binding.
-- Generate and store SSH identities automatically; no learner key generation,
-  key copying, file upload, or Machine credential.
-- Use the `playbooks/` paths for job templates.
-- Wait for guest-agent networking and authenticated SSH before Create finishes.
-
-> **Validation scope:** the normal VM lifecycle, inventory, SSH/sudo, cleanup,
-> real RHEL registration (activation key + organization ID), Timesync
-> configuration, the Create-rerun reconciliation and the four-node workflow
-> all passed with the namespace-scoped ServiceAccount token, using one
-> retained VM. Two environment notes are documented: the Timesync exercise
-> applies its configuration but internet NTP (UDP/123) is blocked in the
-> Sandbox, and the built-in Insights credential type cannot be attached to
-> job templates. See [validation results](validation.md).
-
-The validation branch is not merged into `main`. The project instructions below
-therefore explicitly select `lab/supported-ee-validation` for review/testing.
-Coordinate the final source-control revision and publication after approval.
-
-Site navigation and footers are omitted. Images and original interactive guides
-remain linked rather than copied; recordings may still show the older setup.
-
-### Published sources
+## Sources
 
 | Resource | Published date | Author(s) | Source |
 | --- | --- | --- | --- |
@@ -42,7 +15,7 @@ remain linked rather than copied; recordings may still show the older setup.
 | Lesson 2: Create a registry credential, execution environment, service account, and dynamic inventory | May 8, 2025 | Leonardo Gallego | [Red Hat Developer lesson 2](https://developers.redhat.com/learning/learn:ansible:explore-ansible-automation-platform-ready-use-sandbox/resource/resources:create-registry-credential-execution-environment-service-account-and-dynamic-inventory) |
 | Lesson 3: Configure job templates and use cases | May 12, 2025 | Leonardo Gallego | [Red Hat Developer lesson 3](https://developers.redhat.com/learning/learn:ansible:explore-ansible-automation-platform-ready-use-sandbox/resource/resources:configure-job-templates-and-use-cases) |
 
-### Contents
+## Contents
 
 - [Overview](#overview)
 - [Lesson 1: Provision a Developer Sandbox instance](#lesson-1-provision-a-developer-sandbox-instance)
@@ -74,7 +47,7 @@ Red Hat Ansible Automation Platform in the Developer Sandbox is a one-click depl
 - Create a dedicated namespace-scoped OpenShift credential.
 - Use the default supported execution environment and dynamic inventory.
 - Provision, start, stop and delete a RHEL VM through job templates.
-- Explore workflow design and prepare the follow-on RHEL configuration exercises.
+- Register RHEL, configure Timesync, and automate the sequence with a workflow.
 
 The core exercise uses one VM with one vCPU, 2 GiB guest RAM and a 30 GiB
 boot disk. The provided RHEL boot source is backed by a 30 GiB Block PVC.
@@ -212,8 +185,8 @@ The RoleBinding references the existing `edit` ClusterRole **only within your
 namespace**. It is not a cluster-wide binding. This access includes the VM and
 Secret operations required by the playbooks.
 
-The API honored the requested 30 days in validation. Token duration is still
-subject to server policy: check warnings and the actual expiration. Keep the
+The command requests a 30-day token. Its actual duration is subject to server
+policy: check warnings and the issued expiration. Keep the
 ServiceAccount and binding while using the sandbox; do not delete them when
 deleting an individual VM.
 If the token expires, request another token for the same ServiceAccount and
@@ -281,14 +254,12 @@ needed for the tested VM lifecycle.
    Do not select the Minimal execution environment.
 
 There is no custom EE to build, no `ee-sandbox` to create, and no Quay credential
-to configure for this revision. The exact tested image and collection versions
+to configure. The tested image and collection versions
 are recorded in the [repository README](../README.md).
 
 The OpenShift ServiceAccount created in Lesson 1 is the only automation identity
-needed for the core VM exercise. Red Hat registration input setup is a separate
-remaining task: it is not needed to generate SSH keys or boot the VM, but
-registration must be verified before the package-management and Timesync
-exercises in the completed learning path.
+needed for the core VM exercise. Configure the separate Red Hat registration
+credential in Lesson 3 before running the RHEL registration and Timesync jobs.
 
 ### Create a dynamic inventory for OpenShift Virtualization
 
@@ -366,7 +337,7 @@ the one OpenShift credential from Lesson 1.
 - Build job templates.
 - Provision and discover a RHEL VM with no manual SSH-key setup.
 - Stop, restart and clean up the VM.
-- Prepare a workflow and the follow-on RHEL exercises.
+- Register RHEL, configure Timesync, and run a four-node workflow.
 
 ---
 
@@ -381,13 +352,9 @@ The first step to managing your sandbox is creating a project:
    - Default execution environment: Default execution environment
    - Source control type: Git
    - Source control URL: https://github.com/ansible-tmm/aap-sandbox-project.git
-   - Source control branch/tag/commit: `lab/supported-ee-validation`
+   - Source control branch/tag/commit: `main`
 3. Select **Create project**.
 4. Wait for the project sync to succeed.
-
-> **Publication note:** the validation branch is required while this revision
-> remains unmerged. Update the source-control revision to the approved release
-> when publishing; do not omit it and accidentally use the old `main` playbooks.
 
 ### How SSH access is prepared automatically
 
@@ -441,7 +408,7 @@ exercise, and do not run competing lifecycle jobs simultaneously.
 1. Launch **Create VM**.
 2. Wait for Success. The job clones the RHEL boot disk, starts the VM, waits
    for the guest-agent network report and verifies authenticated SSH. The
-   validation runs took several minutes; allow provisioning to finish.
+   process can take several minutes; allow provisioning to finish.
 3. Open `inventory-sandbox` and its `inventory-virt-sandbox` source.
 4. Select **Launch inventory update** and wait for Success.
 5. In the inventory's **Hosts** tab, find `<your-namespace>-rhel9-server`.
@@ -464,10 +431,7 @@ starts the VM, so a separate Start launch is not needed immediately afterward.
 The disk and identity Secrets persist across stop/start. If the Sandbox later
 idles the VM, use Start again before running guest automation.
 
-### Follow-on RHEL configuration exercises
-
-Both exercises are validated on the retained environment; results are
-recorded in [validation results](validation.md).
+### Register RHEL and configure Timesync
 
 Use the same project, inventory, supported EE and `credential-ocp`:
 
@@ -476,25 +440,21 @@ Use the same project, inventory, supported EE and `credential-ocp`:
 | RHEL Register | `playbooks/rhel_register.yml` | Enabled |
 | RHEL Timesync | `playbooks/rhel_timesync.yml` | Enabled |
 
-Both playbooks retrieve the generated SSH identity automatically. The supplied
-image's passwordless sudo access has been verified; no additional Machine
-credential is required. Both exercises were validated on a real registered
-guest; see the [validation results](validation.md).
+Both playbooks retrieve the generated SSH identity automatically and use the
+supplied image's passwordless sudo access; no additional Machine credential
+is required. Run RHEL Register before RHEL Timesync.
 
-The Timesync exercise was validated with one documented Sandbox limitation:
-the role applies its configuration and starts chronyd, but internet NTP
-(UDP/123) is blocked in the Developer Sandbox, so `chronyc tracking` reports
-"Not synchronised" and the pool servers show no reach. The guest's clock is
-maintained by the platform (KubeVirt synchronizes the guest RTC from the
-host), so this does not affect the VM's time; it only means the exercise
-demonstrates configuration, not live internet-pool sync.
+The Timesync exercise has a Sandbox limitation: internet NTP (UDP/123) was
+unreachable in the tested environment. The role applies its configuration and
+starts chronyd, but `chronyc tracking` can report "Not synchronised" and the
+pool servers can show no reach. The exercise demonstrates configuration, not
+verified synchronization with internet NTP pools.
 
 #### Create a Red Hat registration credential
 
-`rhel_register.yml` registers the guest with an activation key and
-organization ID — validated on a fresh, unregistered guest with this exact
-setup. Registering also connects the guest to Red Hat Lightspeed (Insights)
-by default; unregistering at cleanup removes both.
+`rhel_register.yml` registers the guest with an activation key and numeric
+organization ID. Registering also connects the guest to Red Hat Lightspeed
+(Insights) by default; unregistering at cleanup removes both.
 
 1. In the [Red Hat Hybrid Cloud Console](https://console.redhat.com/), go to
    **Subscriptions > Activation Keys** and create an activation key for your
@@ -504,8 +464,8 @@ by default; unregistering at cleanup removes both.
 
    > **Scope note:** an activation key registers a new consumer in your Red Hat
    > organization and connects it to Red Hat Lightspeed. This exercise uses
-   > those defaults and unregisters the test consumer during cleanup.
-   > The original lesson's Hybrid Cloud Console service-account client ID and
+   > those defaults. Unregister the consumer before deleting the VM.
+   > Hybrid Cloud Console service-account client ID and
    > secret are not valid substitutes: subscription-manager rejects a client
    > ID as an organization ID.
 
@@ -518,64 +478,56 @@ by default; unregistering at cleanup removes both.
    - Input configuration (YAML):
 
      ```yaml
-     inputs:
-       fields:
-         - id: organization_id
-           type: string
-           label: Red Hat organization ID
-           help_text: >-
-             Numeric organization ID from console.redhat.com
-             (Subscriptions > Activation Keys).
-         - id: activation_key
-           type: string
-           label: Red Hat activation key
-           secret: true
-           help_text: >-
-             Activation key from console.redhat.com
-             (Subscriptions > Activation Keys). Treat it as a password.
+     fields:
+       - id: organization_id
+         type: string
+         label: Red Hat organization ID
+         help_text: >-
+           Numeric organization ID from console.redhat.com
+           (Subscriptions > Activation Keys).
+       - id: activation_key
+         type: string
+         label: Red Hat activation key
+         secret: true
+         help_text: >-
+           Activation key from console.redhat.com
+           (Subscriptions > Activation Keys). Treat it as a password.
      ```
 
    - Injector configuration (YAML):
 
      ```yaml
-     injectors:
-       env: {}
-       extra_vars:
-         organization_id: "{{ organization_id }}"
-         activation_key: "{{ activation_key }}"
+     env: {}
+     extra_vars:
+       organization_id: "{{ organization_id }}"
+       activation_key: "{{ activation_key }}"
      ```
 
-   Both fields are injected as extra variables under the exact names
-   `rhel_register.yml` already consumes, so no playbook change is required.
-   The activation key field is marked secret, so AAP masks it in the UI and
-   API responses and never writes it to job output. (The same definition is
-   kept in
-   [`docs/credential-type-redhat-registration.yml`](https://github.com/ansible-tmm/aap-sandbox-project/blob/lab/supported-ee-validation/docs/credential-type-redhat-registration.yml)
-   for API import and automation; the form takes its `inputs` and `injectors`
-   sections in the two separate editors.)
-3. Go to **Infrastructure > Credentials** and select **Create credential**:
+   Both fields are injected as extra variables under the names
+   `rhel_register.yml` consumes. The activation key field is marked secret for
+   AAP masking; never print it from a playbook. The complete
+   [credential type definition](credential-type-redhat-registration.yml)
+   includes the `inputs:` and `injectors:` wrapper keys for API import.
+   **Do not include those wrapper keys in the form's separate YAML editors.**
+3. Select **Create credential type**.
+4. Go to **Infrastructure > Credentials** and select **Create credential**:
    - Name: credential-rhel-registration
    - Credential type: Red Hat Registration (Activation Key)
    - Red Hat organization ID: your numeric organization ID
    - Red Hat activation key: paste the activation key here
-4. Select **Create credential**.
+5. Select **Create credential**.
 
 Attach **both** `credential-ocp` and `credential-rhel-registration` to the
 RHEL Register job template: `credential-ocp` supplies the guest's SSH identity
 and API access; the registration credential supplies the activation key and
-organization ID under the exact variable names `rhel_register.yml` has always
-consumed. Never commit registration secrets or paste them into this guide.
+organization ID under the variable names `rhel_register.yml`
+consumes. Never commit registration secrets or paste them into this guide.
 
 The Timesync exercise uses `redhat.rhel_system_roles.timesync` with
-`0.rhel.pool.ntp.org` preferred and `1.rhel.pool.ntp.org` as a pool. It was
-validated on a registered guest; see the note above on the Sandbox's blocked
-internet NTP access.
+`0.rhel.pool.ntp.org` preferred and `1.rhel.pool.ntp.org` as a pool. See the
+Sandbox NTP limitation above.
 
 ### Build a Workflow Job Template
-
-This walkthrough is validated end-to-end: workflow `workflow-sandbox-rhel`
-was built exactly as described and executed as a real Workflow Job Template
-(all four nodes successful; see [validation results](validation.md)).
 
 Start with the core provisioning sequence:
 
@@ -609,8 +561,8 @@ The explicit inventory node runs **after** provisioning, so the new VM can be
 discovered. It must select the source `inventory-virt-sandbox`, not just its
 parent inventory. Child templates supply their own EE and credentials.
 
-The completed learning path is the following four-node graph. Add two more
-**Template** nodes to the core sequence, each connected with **Run on
+Complete the following four-node graph. Add two more
+**Job Template** nodes to the core sequence, each connected with **Run on
 success**:
 
 ```text
@@ -621,7 +573,7 @@ Create VM
 ```
 
 Use **RHEL Register** for the third node and **RHEL Timesync** for the fourth,
-then save the entire graph. Because reruns of the workflow reuse the retained
+then save and launch the entire graph. Because reruns of the workflow reuse the
 VM's registration, the Register node completes idempotently ("System already
 registered") and creates no duplicate consumer in your Red Hat organization.
 
@@ -630,8 +582,12 @@ This walkthrough follows the
 
 ### Clean up the disposable VM
 
-1. Launch **Delete VM** and wait for Success.
-2. Refresh `inventory-virt-sandbox`; the generated host should disappear.
+1. If you registered the VM, unregister only that guest from RHSM and disconnect
+   Red Hat Lightspeed before deleting it. Verify unregistration succeeded;
+   if it fails, retain the VM so you can retry. **Delete VM does not perform
+   unregistration.**
+2. Launch **Delete VM** and wait for Success.
+3. Refresh `inventory-virt-sandbox`; the generated host should disappear.
 
 Delete removes the VM, boot DataVolume/PVC and both generated Secrets.
 **The VM's disk contents are lost.** Keep your ServiceAccount, RoleBinding,
@@ -645,10 +601,8 @@ files or credential uploads need to be repeated.
 You connected AAP to your namespace with a dedicated ServiceAccount, used the
 default supported EE, discovered a RHEL VM through dynamic inventory, and
 managed its lifecycle with automatic SSH credentials and cleanup. You then
-registered the guest with a real activation key, verified repository access
-through package installation, configured time synchronization, and ran the
-full four-node workflow — all validated end-to-end on the supported
-execution environment.
+registered the guest with an activation key, configured Timesync with the
+Sandbox's NTP limitation in mind, and ran the full four-node workflow.
 
 Ready to learn more about how Ansible automates? Try these learning paths:
 

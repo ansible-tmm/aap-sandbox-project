@@ -511,15 +511,48 @@ by default; unregistering at cleanup removes both.
 
 2. No built-in AAP credential type supplies these values, and the built-in
    **Insights** type cannot be attached to job templates. Create the minimal
-   custom type once: go to **Automation Execution > Infrastructure >
+   custom type once. Go to **Automation Execution > Infrastructure >
    Credential Types**, open the toolbar **Actions** dropdown and select
-   **Create credential type**, pasting the
-   contents of
+   **Create credential type**, then fill in:
+   - Name: Red Hat Registration (Activation Key)
+   - Input configuration (YAML):
+
+     ```yaml
+     inputs:
+       fields:
+         - id: organization_id
+           type: string
+           label: Red Hat organization ID
+           help_text: >-
+             Numeric organization ID from console.redhat.com
+             (Subscriptions > Activation Keys).
+         - id: activation_key
+           type: string
+           label: Red Hat activation key
+           secret: true
+           help_text: >-
+             Activation key from console.redhat.com
+             (Subscriptions > Activation Keys). Treat it as a password.
+     ```
+
+   - Injector configuration (YAML):
+
+     ```yaml
+     injectors:
+       env: {}
+       extra_vars:
+         organization_id: "{{ organization_id }}"
+         activation_key: "{{ activation_key }}"
+     ```
+
+   Both fields are injected as extra variables under the exact names
+   `rhel_register.yml` already consumes, so no playbook change is required.
+   The activation key field is marked secret, so AAP masks it in the UI and
+   API responses and never writes it to job output. (The same definition is
+   kept in
    [`docs/credential-type-redhat-registration.yml`](https://github.com/ansible-tmm/aap-sandbox-project/blob/lab/supported-ee-validation/docs/credential-type-redhat-registration.yml)
-   from the project. It defines a secret `activation_key` field and a plain
-   `organization_id` field, both injected as extra variables of the same
-   names. The activation key field is marked secret, so AAP masks it in the
-   UI and API responses and never writes it to job output.
+   for API import and automation; the form takes its `inputs` and `injectors`
+   sections in the two separate editors.)
 3. Go to **Infrastructure > Credentials** and select **Create credential**:
    - Name: credential-rhel-registration
    - Credential type: Red Hat Registration (Activation Key)

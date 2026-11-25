@@ -17,7 +17,7 @@
     wait: true
     wait_timeout: "{{ sandbox_vm_ready_timeout }}"
 
-- name: Start | Wait for the address reported to dynamic inventory
+- name: Start | Wait for the guest-agent network report used by dynamic inventory
   kubernetes.core.k8s_info:
     api_version: kubevirt.io/v1
     kind: VirtualMachineInstance
@@ -27,8 +27,14 @@
   until:
     - __sandbox_vm_instance.resources | length == 1
     - >-
+      __sandbox_vm_instance.resources[0].status.conditions | default([]) |
+      selectattr('type', 'equalto', 'AgentConnected') |
+      selectattr('status', 'equalto', 'True') | list | length > 0
+    - >-
       __sandbox_vm_instance.resources[0].status.interfaces | default([]) |
       selectattr('name', 'equalto', 'default') |
+      selectattr('infoSource', 'defined') |
+      selectattr('infoSource', 'search', 'guest-agent') |
       selectattr('ipAddress', 'defined') |
       map(attribute='ipAddress') | select | list | length > 0
   retries: "{{ ((sandbox_vm_ready_timeout | int) / 5) | int }}"

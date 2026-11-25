@@ -21,7 +21,7 @@ Public playbooks select a semantic `sandbox_vm_action`:
 | Action | Outcome |
 | --- | --- |
 | `create` | Ensure SSH identity and public-key Secrets, provision VM, explicitly start it |
-| `start` | Start the managed Manual-strategy VM and discover its address |
+| `start` | Start the managed Manual-strategy VM and wait for its guest-agent network report |
 | `stop` | Stop the managed Manual-strategy VM |
 | `delete` | Remove managed VM, DataVolume and Secrets; wait for PVC cleanup |
 | `check_inventory` | Fail clearly if the selected VM is missing from saved inventory |
@@ -68,6 +68,9 @@ Instead, a small user-only bootstrap is inline; `accessCredentials` / `noCloud`
 injects the generated public key from `<vm_name>-cloudinit`. That Secret contains
 only `data.key`, never a private key or an entire cloud-config document.
 The `<vm_name>-ssh` identity Secret is never referenced by the VM.
+Readiness also waits for the supplied RHEL image's guest agent to report the
+default interface's IP. The early pod-derived address can precede a complete
+guest-agent report and leave an immediate inventory sync without `ansible_host`.
 
 ## State, cleanup and limitations
 

@@ -96,6 +96,33 @@ References:
 - [Sandbox validator](https://github.com/codeready-toolchain/member-operator/blob/master/pkg/webhook/validatingwebhook/validate_vm_request.go)
 - [Sandbox mutator](https://github.com/codeready-toolchain/member-operator/blob/master/pkg/webhook/mutatingwebhook/vm_mutate.go)
 
+## Revised Create VM run and inventory timing
+
+Commit `7af4ac7`, Create VM job **#10**, succeeded in approximately **199 seconds**:
+
+- Reused the SSH identity from the first attempt.
+- Provisioned and booted the VM with Manual strategy and 2 GiB guest RAM.
+- Completed authenticated SSH verification.
+- Had **832 bytes** of inline cloud-init after Sandbox mutation.
+- Referenced only the public-key Secret from the VM. A separate read-only check
+  confirmed the two stored public keys match and neither the SSH identity Secret
+  nor the generated public-key value appears in the VM manifest.
+
+Inventory update **#12** succeeded but captured a transient guest-agent interface
+report without IP fields. Update **#13** then populated the address without any
+VM or networking changes. The candidate's startup readiness now waits for both
+`AgentConnected=True` and an IP on the guest-agent-reported default interface,
+rather than accepting only the earlier pod-derived IP.
+
+The separate fresh-EE job **#14** succeeded using only the OpenShift credential:
+Ansible returned `pong`, passwordless sudo returned exit code 0, and temporary
+SSH files were removed. Secret read/staging task results were censored.
+
+Delete VM job **#15** succeeded in approximately **31 seconds**. Independent
+read-only API checks then returned 404 for the VM, DataVolume, PVC and both
+Secrets. The final fresh lifecycle run with the stronger readiness gate is
+still pending.
+
 ## Resource sizing review
 
 The existing defaults are retained for the first real test: **2 GiB guest RAM
@@ -109,3 +136,8 @@ and a 30 GiB boot disk**.
   guidance, not proof that a preinstalled cloud guest cannot run in 1 GiB.
   A lower runtime allocation must be assessed against the actual registration
   and system-role workload before becoming the beginner-lab default.
+
+The admitted test VM's launcher `compute` container reserved **2316 MiB**
+for the 2 GiB guest plus virtualization overhead. Its CPU request was **100m**
+and CPU limit **1**, despite exposing one vCPU to the guest. These are resource
+allocations, not measured guest workload utilization.

@@ -111,7 +111,7 @@ inventory entry. Sync inventory after provisioning or restarting.
    to reference that public-key Secret. A tiny inline cloud-init document
    identifies `cloud-user` and disables password/root SSH login.
    The VM retains `runStrategy: Manual`; the playbook explicitly starts it and
-   waits for an authenticated SSH connection.
+   waits for the guest-agent network report and an authenticated SSH connection.
 4. Each guest job retrieves the private key through `credential-ocp`, stages it
    in a private temporary EE directory with file mode `0600`, and removes the
    files in an `always` block.

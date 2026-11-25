@@ -100,6 +100,18 @@
           failed_when: false
           register: __sandbox_baseline_chrony_tracking
 
+        - name: Probe NTP reachability without changing the clock or configuration
+          ansible.builtin.command:
+            argv:
+              - timeout
+              - "15"
+              - chronyd
+              - -Q
+              - pool 0.rhel.pool.ntp.org iburst
+          changed_when: false
+          failed_when: false
+          register: __sandbox_baseline_ntp_probe
+
         - name: Show the recorded baseline
           ansible.builtin.debug:
             msg:
@@ -127,6 +139,10 @@
               - >-
                 chronyc tracking:
                 {{ __sandbox_baseline_chrony_tracking.stdout | trim | truncate(600) }}
+              - >-
+                NTP probe (chronyd -Q): rc={{ __sandbox_baseline_ntp_probe.rc }},
+                out={{ __sandbox_baseline_ntp_probe.stdout | trim | truncate(300) }},
+                err={{ __sandbox_baseline_ntp_probe.stderr | trim | truncate(300) }}
       always:
         - name: Remove the temporary SSH identity
           ansible.builtin.include_role:

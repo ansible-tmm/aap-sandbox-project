@@ -17,14 +17,14 @@ VM experience for AAP 2.7 and OpenShift 4.22.22:
 - Use the `playbooks/` paths for job templates.
 - Wait for guest-agent networking and authenticated SSH before Create finishes.
 
-> **Validation scope:** the normal VM lifecycle, inventory, SSH/sudo and cleanup
-> passed with both a user token and the namespace-scoped ServiceAccount token.
-> Real registration and package installation must be verified before Timesync.
-> Neither RHEL exercise has run, and the workflow-visualizer
-> walkthrough below has not yet been executed as a Workflow Job Template.
-> Validation used API-launched component jobs, not a full manual UI walkthrough.
-> The retained provisioning screens and revised copy need final editorial UI
-> review. See [validation results](validation.md).
+> **Validation scope:** the normal VM lifecycle, inventory, SSH/sudo, cleanup,
+> real RHEL registration (activation key + organization ID), Timesync
+> configuration, the Create-rerun reconciliation and the four-node workflow
+> all passed with the namespace-scoped ServiceAccount token, using one
+> retained VM. Two environment notes are documented: the Timesync exercise
+> applies its configuration but internet NTP (UDP/123) is blocked in the
+> Sandbox, and the built-in Insights credential type cannot be attached to
+> job templates. See [validation results](validation.md).
 
 The validation branch is not merged into `main`. The project instructions below
 therefore explicitly select `lab/supported-ee-validation` for review/testing.
@@ -465,13 +465,10 @@ idles the VM, use Start again before running guest automation.
 
 ### Follow-on RHEL configuration exercises
 
-> **Not yet validated:** registration, package access and Timesync still need
-> execution. Registration must be verified first. The input setup below is the
-> settled design; the execution results are recorded in
-> [validation results](validation.md).
+Both exercises are validated on the retained environment; results are
+recorded in [validation results](validation.md).
 
-When the follow-on exercises are ready, use the same project, inventory,
-supported EE and `credential-ocp`:
+Use the same project, inventory, supported EE and `credential-ocp`:
 
 | Name | Playbook | Privilege escalation |
 | --- | --- | --- |
@@ -480,60 +477,70 @@ supported EE and `credential-ocp`:
 
 Both playbooks retrieve the generated SSH identity automatically. The supplied
 image's passwordless sudo access has been verified; no additional Machine
-credential is required.
+credential is required. Both exercises were validated on a real registered
+guest; see the [validation results](validation.md).
+
+The Timesync exercise was validated with one documented Sandbox limitation:
+the role applies its configuration and starts chronyd, but internet NTP
+(UDP/123) is blocked in the Developer Sandbox, so `chronyc tracking` reports
+"Not synchronised" and the pool servers show no reach. The guest's clock is
+maintained by the platform (KubeVirt synchronizes the guest RTC from the
+host), so this does not affect the VM's time; it only means the exercise
+demonstrates configuration, not live internet-pool sync.
 
 #### Create a Red Hat registration credential
 
 `rhel_register.yml` registers the guest with an activation key and
-organization ID — the method recommended by the official RHEL system-roles
-documentation. Registering also connects the guest to Red Hat Lightspeed
-(Insights) by default; unregistering at cleanup removes both.
+organization ID — validated on a fresh, unregistered guest with this exact
+setup. Registering also connects the guest to Red Hat Lightspeed (Insights)
+by default; unregistering at cleanup removes both.
 
 1. In the [Red Hat Hybrid Cloud Console](https://console.redhat.com/), go to
-   **Subscriptions > Activation Keys** and create or select an activation key
-   for your organization. Note the key name and the numeric **organization ID**
-   shown on the same screen.
+   **Subscriptions > Activation Keys** and create an activation key for your
+   organization (for example `aap-sandbox-lab`), attaching your
+   **Red Hat Developer Subscription for Individuals**. Note the key name and
+   the numeric **organization ID** shown on the same screen.
 
    > **Scope note:** an activation key registers a new consumer in your Red Hat
-   > organization and connects it to Red Hat Lightspeed. This exercise
-   > intentionally uses those defaults and unregisters the test consumer during
-   > cleanup.
+   > organization and connects it to Red Hat Lightspeed. This exercise uses
+   > those defaults and unregisters the test consumer during cleanup.
+   > The original lesson's Hybrid Cloud Console service-account client ID and
+   > secret are not valid substitutes: subscription-manager rejects a client
+   > ID as an organization ID.
 
-2. In the Ansible Automation Platform sidebar, go to **Automation Execution >
-   Infrastructure > Credential Types** and select **Create credential type**.
-3. Instead of typing the configuration, paste the contents of
+2. No built-in AAP credential type supplies these values, and the built-in
+   **Insights** type cannot be attached to job templates. Create the minimal
+   custom type once: go to **Automation Execution > Infrastructure >
+   Credential Types** and select **Create credential type**, pasting the
+   contents of
    [`docs/credential-type-redhat-registration.yml`](https://github.com/ansible-tmm/aap-sandbox-project/blob/lab/supported-ee-validation/docs/credential-type-redhat-registration.yml)
-   from the project, or copy the equivalent fields: a plain
-   `organization_id` input and a secret `activation_key` input, both injected
-   as extra variables of the same names.
-
-   The activation key field is marked secret, so AAP masks it in the UI and
-   API responses and never writes it to job output.
-
-4. Go to **Infrastructure > Credentials** and select **Create credential**:
+   from the project. It defines a secret `activation_key` field and a plain
+   `organization_id` field, both injected as extra variables of the same
+   names. The activation key field is marked secret, so AAP masks it in the
+   UI and API responses and never writes it to job output.
+3. Go to **Infrastructure > Credentials** and select **Create credential**:
    - Name: credential-rhel-registration
    - Credential type: Red Hat Registration (Activation Key)
    - Red Hat organization ID: your numeric organization ID
    - Red Hat activation key: paste the activation key here
-5. Select **Create credential**.
+4. Select **Create credential**.
 
 Attach **both** `credential-ocp` and `credential-rhel-registration` to the
-RHEL Register and RHEL Timesync job templates: `credential-ocp` supplies the
-guest's SSH identity and API access; the registration credential supplies the
-activation key and organization ID. Never commit registration secrets or paste
-them into this guide.
+RHEL Register job template: `credential-ocp` supplies the guest's SSH identity
+and API access; the registration credential supplies the activation key and
+organization ID under the exact variable names `rhel_register.yml` has always
+consumed. Never commit registration secrets or paste them into this guide.
 
-The planned Timesync exercise uses `redhat.rhel_system_roles.timesync` with
-`0.rhel.pool.ntp.org` preferred and `1.rhel.pool.ntp.org` as a pool.
-Verify registration and package installation first, then validate this role.
-A preinstalled Chrony package alone does not prove that registration or
-repository access works.
+The Timesync exercise uses `redhat.rhel_system_roles.timesync` with
+`0.rhel.pool.ntp.org` preferred and `1.rhel.pool.ntp.org` as a pool. It was
+validated on a registered guest; see the note above on the Sandbox's blocked
+internet NTP access.
 
 ### Build a Workflow Job Template
 
-> **Draft walkthrough:** the component VM jobs and explicit inventory updates
-> passed in sequence, but this visualizer-defined workflow has not yet been run.
-> The RHEL nodes also remain pending as described above.
+This walkthrough is validated end-to-end: workflow `workflow-sandbox-rhel`
+was built exactly as described and executed as a real Workflow Job Template
+(all four nodes successful; see [validation results](validation.md)).
 
 Start with the core provisioning sequence:
 
@@ -566,9 +573,9 @@ The explicit inventory node runs **after** provisioning, so the new VM can be
 discovered. It must select the source `inventory-virt-sandbox`, not just its
 parent inventory. Child templates supply their own EE and credentials.
 
-The completed learning path requires the following four-node graph. After the
-RHEL exercises are verified, add two more **Template** nodes, each connected
-with **Run on success**:
+The completed learning path is the following four-node graph. Add two more
+**Template** nodes to the core sequence, each connected with **Run on
+success**:
 
 ```text
 Create VM
@@ -577,13 +584,13 @@ Create VM
             → RHEL Timesync
 ```
 
-Use **RHEL Register** for the third node and **RHEL Timesync** for the fourth.
-Save the entire graph. Do not launch this four-node extension before both RHEL
-exercises have been validated.
+Use **RHEL Register** for the third node and **RHEL Timesync** for the fourth,
+then save the entire graph. Because reruns of the workflow reuse the retained
+VM's registration, the Register node completes idempotently ("System already
+registered") and creates no duplicate consumer in your Red Hat organization.
 
 This walkthrough follows the
 [AAP 2.7 workflow visualizer documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.7/develop-con_controller_workflow_visualizer).
-Its actual execution remains a separate validation step.
 
 ### Clean up the disposable VM
 
@@ -601,9 +608,11 @@ files or credential uploads need to be repeated.
 
 You connected AAP to your namespace with a dedicated ServiceAccount, used the
 default supported EE, discovered a RHEL VM through dynamic inventory, and
-managed its lifecycle with automatic SSH credentials and cleanup.
-The follow-on RHEL exercises and full workflow remain draft sections until
-their remaining validation is complete.
+managed its lifecycle with automatic SSH credentials and cleanup. You then
+registered the guest with a real activation key, verified repository access
+through package installation, configured time synchronization, and ran the
+full four-node workflow — all validated end-to-end on the supported
+execution environment.
 
 Ready to learn more about how Ansible automates? Try these learning paths:
 

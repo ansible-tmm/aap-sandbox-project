@@ -4,12 +4,12 @@ Recorded November 25, 2026. **The normal VM lifecycle passed on commit
 `d11a722`, using the pinned AAP 2.7 supported EE and OpenShift 4.22.22.**
 
 The namespace-scoped OpenShift ServiceAccount credential flow also passed
-without playbook changes. Registration, Timesync and the final workflow
-execution remain untested. The latest user decision requires real registration
-and proven package access before Timesync, using one retained test environment.
-See [implementation handoff](implementation-handoff.md). The verified
-learner-copy sections have been rewritten; UI review and RHEL/workflow
-validation remain pending before publication.
+without playbook changes. Real registration, entitlement-verified package
+installation, Timesync (with the documented NTP limitation), the
+Create-rerun reconciliation fix and the four-node workflow all passed on the
+retained environment; see below. See [implementation handoff](implementation-handoff.md).
+The verified learner-copy sections have been rewritten; UI review and
+publication remain pending.
 
 ## Completed preflight checks for the first candidate
 
@@ -245,7 +245,8 @@ the sandbox. Normal Delete VM does not remove that reusable automation identity.
 ## Registration-first phase checkpoint
 
 Recorded November 25, 2026, before the retained-environment runs. Inputs and
-scope are settled; execution below is pending until the retained VM exists.
+scope are settled; the results of these runs are recorded in the sections
+below.
 
 ### Registration inputs: settled
 
@@ -295,7 +296,8 @@ User-approved on November 25, 2026:
 
 - Retained-environment runs: fresh Create, baseline registration-state check,
   real registration, `tree` install, Timesync, Create rerun, four-node
-  workflow, UI review, final unregistration/cleanup.
+  workflow — **all completed** (results below). Remaining: UI review and
+  final unregistration/cleanup.
 
 ## Retained-environment results: registration and Timesync
 
@@ -383,9 +385,54 @@ Implication: in the Developer Sandbox, the Timesync exercise can demonstrate
 the role applying the intended configuration and starting chronyd, but
 chrony will report "Not synchronised" because internet NTP is unreachable.
 Guest time is maintained by the platform (KubeVirt synchronizes the guest RTC
-from the host), which limits the practical impact. The guide needs this
-expectation documented rather than presenting internet-pool sync as an
-observable outcome.
+from the host), which limits the practical impact. The guide documents this
+expectation rather than presenting internet-pool sync as an observable
+outcome.
+
+## Create rerun, reconciliation fix, and workflow: passed
+
+Recorded November 25, 2026.
+
+### Create rerun on the existing VM
+
+The first Create rerun (job **57**, 29.3 s) succeeded with no duplicate
+resources (1 VM / 1 DataVolume / 3 PVCs) and byte-identical identity Secrets,
+Manual strategy, access-credential reference, volumes, and CPU. It revealed
+one reconciliation gap: re-applying the VM manifest replaced the Sandbox
+mutator's platform-injected inline cloud-init keys (userData 832 -> 104
+bytes), because the webhook mutates only on admission of a new VM.
+
+The role was corrected to apply the VM manifest only on fresh creation;
+existing managed VMs are validated (project labels, Manual strategy, identity
+Secrets) and their readiness is verified by the start tasks instead. The fixed
+rerun (job **59**, 28.8 s) skipped the provision task and left userData
+untouched. The platform-injected keys stripped from this validation VM's
+userData before the fix remain stripped; the VM's own access-credential key
+is unaffected and SSH verification passed throughout.
+
+### Four-node Workflow Job Template
+
+`workflow-sandbox-rhel` (workflow **61**) ran the real graph
+`Create VM -> inventory-virt-sandbox sync -> RHEL Register -> RHEL Timesync`
+with success edges, using workflow-level inventory inheritance:
+
+| Node | Job | Result |
+| --- | --- | --- |
+| Create VM | 62 | successful (rerun path: provision skipped, SSH verified) |
+| Inventory sync | 63 | successful |
+| RHEL Register | 64 | successful; `changed=False`, "System already registered" |
+| RHEL Timesync | 65 | successful |
+
+Post-workflow baseline (job **66**): consumer identity unchanged
+(`862e2433-fdb7-4fd5-bb08-038b87b2a12a`, org `1979710`) — reruns reuse the
+registration identity and create no duplicate consumer. `tree` remains
+installed, the chrony configuration is stable, and the NTP limitation above
+reproduced consistently.
+
+This was a genuine Workflow Job Template execution, not component jobs
+launched sequentially by an external script. The previously documented
+update-on-launch inventory behavior and credential inheritance worked as
+described in the guide.
 
 ## Guide revision
 

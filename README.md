@@ -3,13 +3,18 @@
 Beginner-focused Ansible Automation Platform sandbox automation for RHEL VMs
 on OpenShift Virtualization.
 
-> **VM lifecycle validated:** the pinned supported EE completed fresh VM
-> provisioning, inventory sync, automatic SSH/sudo access, stop/start and cleanup.
-> Both user-token and namespace-scoped ServiceAccount authentication passed.
-> The next phase must verify real RHEL registration and package installation
-> before Timesync. RHEL/workflow execution and final UI review remain pending.
-> See the [clean-context handoff](docs/implementation-handoff.md) for the
-> single-environment implementation plan.
+> **Validation complete:** the pinned supported EE passed the full VM lifecycle
+> (provision, inventory sync, SSH/sudo, stop/start, cleanup) with a
+> namespace-scoped ServiceAccount, plus real RHEL registration via activation
+> key, entitlement-verified package installation, Timesync configuration and
+> the four-node workflow — all on one retained VM. Two environment notes
+> apply: internet NTP (UDP/123) is blocked in the Sandbox (Timesync applies
+> its configuration; live sync is not observable), and the built-in Insights
+> credential type cannot attach to job templates (a custom registration
+> credential type is provided). Final UI review and publication remain
+> pending on `lab/supported-ee-validation`. See the
+> [validation results](docs/validation.md) and the
+> [clean-context handoff](docs/implementation-handoff.md).
 
 ## Repository layout
 
@@ -110,8 +115,9 @@ Registering with the `rhc` role follows the role defaults: it installs
 `insights-client` and `rhc`, and connects the guest to Red Hat Lightspeed
 (Insights) with auto-update and remediation enabled. Unregistering the guest
 (`rhc_state: absent`) removes both the RHSM consumer and the Lightspeed
-connection. Registration execution is still pending validation; see
-[docs/validation.md](docs/validation.md).
+connection. Registration execution is validated with a real activation key
+and numeric organization ID (consumer identity reused idempotently across
+reruns); see [docs/validation.md](docs/validation.md).
 
 For `inventory-virt-sandbox`, select the supported EE, the OpenShift Virtualization
 source, and `credential-ocp`. Source variables:
@@ -225,10 +231,12 @@ The normal test sequence is:
 6. Run Delete VM and confirm the VM, DataVolume, PVC, and both Secrets are gone.
 7. Refresh inventory and confirm the generated host is removed.
 
-No oversized cloud-init fixture is required. The completed core test did not
-register the guest or configure Timesync. The next phase must verify registration,
-prove package installation, then run Timesync and the full workflow, retaining
-one environment until review and final unregistration/cleanup are finished.
+No oversized cloud-init fixture is required. The completed validation covered
+the full lifecycle, real registration (activation key + organization ID),
+entitlement-verified package installation, Timesync configuration and the
+four-node workflow on one retained VM; see
+[docs/validation.md](docs/validation.md). Internet NTP is blocked in the
+Sandbox, so Timesync proves configuration, not live pool sync.
 
 ## Structure guidance
 

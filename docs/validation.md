@@ -3,8 +3,11 @@
 Recorded November 25, 2026. **The normal VM lifecycle passed on commit
 `d11a722`, using the pinned AAP 2.7 supported EE and OpenShift 4.22.22.**
 
-Registration, Timesync, and the separately created OpenShift ServiceAccount
-credential flow remain untested. The final learner-copy rewrite is pending.
+The namespace-scoped OpenShift ServiceAccount credential flow also passed
+without playbook changes. Registration is deferred; Timesync and the final
+workflow execution remain untested. The verified learner-copy sections have
+been rewritten; provisioning-screen UI review and the deferred sections remain
+pending before publication.
 
 ## Completed preflight checks for the first candidate
 
@@ -130,11 +133,13 @@ The final run used commit `d11a722`, the pinned supported EE and only the
 explicitly associated OpenShift credential. No Machine credential, learner-made
 SSH key, or AAP API credential was supplied to the playbooks.
 
-An intermediate test-harness guard caught an inventory-source setup error
-before creating another VM: a legacy API credential field had not associated
-the credential. The isolated test source was corrected through its
-`credentials/` association endpoint, and that association was verified before
-the final run. This was not a required learner-playbook change.
+An intermediate test-harness guard incorrectly treated the deprecated
+inventory-source `credential` field's null value as a missing credential.
+The actual `credentials/` relation is authoritative. A later read-only audit of
+inventory updates #12, #13, #16 and #20 confirmed that all already used the
+intended user-token credential. The earlier description of a missing
+association was incorrect. The guard was corrected to inspect the relation;
+this was a harness change, not a learner-playbook or authentication fix.
 
 | Stage | AAP job/update | Result | Execution time |
 | --- | --- | --- | --- |
@@ -171,16 +176,86 @@ were not changed. Remote `main` was not updated.
 The test AAP project, inventory source, templates and encrypted OpenShift
 credential remain available for the next approved checks.
 
+## Namespace-scoped ServiceAccount: passed
+
+The same improved playbooks at `d11a722` were tested again, changing only the
+OpenShift authentication identity:
+
+- Temporary ServiceAccount `aap-lab-validation`.
+- Namespaced RoleBinding `aap-lab-validation-edit` referencing the existing
+  `edit` ClusterRole, with only that ServiceAccount as its subject.
+- No ClusterRole, ClusterRoleBinding, or grant in another namespace was created
+  or modified.
+- TokenRequest requested **720 hours** and received exactly **30 days** with no
+  warnings, matching the original Lesson 1 request on this cluster.
+- The token was stored in an encrypted, temporary AAP OpenShift credential.
+  No plaintext ServiceAccount token was written locally or committed.
+- All five isolated validation templates and the inventory source were verified
+  to use only that credential before the test.
+
+The test identity's names differed from the guide only to isolate and identify
+the temporary resources. Its permissions and authentication mechanism matched
+the published ServiceAccount/namespace-edit setup. This was not a test of the
+old playbooks or manual SSH-key instructions.
+
+| Stage | AAP job/update | Result | Execution time |
+| --- | --- | --- | --- |
+| ServiceAccount inventory preflight | 28 | Passed | 5.0 s |
+| Create VM and clone the shared RHEL image | 29 | Passed; new keys generated automatically | 175.8 s |
+| Inventory sync | 30 | Passed; address present | 5.3 s |
+| Fresh-EE SSH and sudo | 31 | Passed | 10.3 s |
+| Stop VM | 32 | Passed | 14.4 s |
+| Start VM | 33 | Passed | 55.3 s |
+| Inventory refresh | 34 | Passed; address present | 5.3 s |
+| Fresh-EE SSH and sudo after restart | 35 | Passed | 10.5 s |
+| Delete VM | 36 | Passed | 30.8 s |
+| Inventory cleanup | 37 | Passed; zero hosts | 5.1 s |
+
+The VM retained Manual strategy, 2 GiB guest RAM and a 30 GiB boot disk.
+Inline user data was 832 bytes after Sandbox mutation. Monitored events
+contained no detected private-key or tested ServiceAccount-token markers.
+
+Afterward, the isolated AAP templates and source were restored to their original
+test credential, and the temporary AAP ServiceAccount credential was deleted.
+The temporary RoleBinding and ServiceAccount were then deleted with UID
+preconditions, revoking the test identity without touching other resources.
+Independent API checks confirmed all VM resources, both Secrets, the identity
+resources and temporary AAP credential were absent. Storage returned to
+**2 PVCs / 18 GiB** and inventory to **zero hosts**. Temporary monitoring files
+were removed.
+
+Learners should keep their one-time ServiceAccount/RoleBinding while they use
+the sandbox. Normal Delete VM does not remove that reusable automation identity.
+
 ### Remaining validation
 
-- Run the same learner path using the lesson-created, namespace-scoped
-  OpenShift ServiceAccount token. The completed run used the supplied user token;
-  it does not establish identical permissions for that separate identity.
 - Reconcile the original service-account client-ID/secret instructions with
   the registration role's activation-key/organization-ID inputs, then verify
-  registration with approved credentials.
+  registration with approved credentials. This remains deferred by request.
 - Execute the Timesync system role and final learner workflow.
-- Rewrite the historical learner instructions around the verified experience.
+- Complete the provisioning-screen UI review and the remaining role/workflow
+  validation before publishing the revised learner instructions.
+
+## Guide revision
+
+The working learning path now uses the verified core experience rather than
+retaining obsolete SSH setup as active instructions:
+
+- Kept the one-time OpenShift ServiceAccount/namespace-edit approach, with
+  namespace-explicit commands and an issued-expiration caveat.
+- Selected the existing default supported EE; removed custom EE/Quay setup.
+- Removed manual SSH key generation, key blocks, uploads, Machine credentials,
+  VM passwords and public-key inventory inputs.
+- Documented all six `playbooks/` paths and the one OpenShift credential.
+- Explained post-provision inventory sync, lifecycle actions and cleanup.
+- Added the documentation-based workflow visualizer walkthrough, explicitly
+  marked as not yet executed as a Workflow Job Template.
+- Marked registration and Timesync as pending rather than presenting the
+  unverified Red Hat client-ID/client-secret mapping as working instructions.
+
+The original account setup and key-redacted source text remain in commit
+`7f87ce6`. The working project instructions explicitly select the validation
+branch because the new layout is not merged into `main`.
 
 ## Resource sizing review
 

@@ -5,9 +5,10 @@ on OpenShift Virtualization.
 
 > **VM lifecycle validated:** the pinned supported EE completed fresh VM
 > provisioning, inventory sync, automatic SSH/sudo access, stop/start and cleanup.
-> Registration, Timesync, and the lesson's separately created OpenShift
-> ServiceAccount credentials still need verification. The learning-path
-> transcription has not yet been rewritten into the final learner instructions.
+> Both user-token and namespace-scoped ServiceAccount authentication passed.
+> The guide now reflects the verified core flow. Registration is deferred;
+> Timesync, workflow execution and the final provisioning-screen UI review
+> remain pending before publication.
 
 ## Repository layout
 
@@ -83,6 +84,14 @@ The candidate does not require `ssh_public_key`, `vm_password`, or a Machine
 credential. All six job templates use `credential-ocp`, the OpenShift or
 Kubernetes API Bearer Token credential. Never put the token in inventory
 variables, Git, or job output.
+
+The original Lesson 1 authentication setup is sufficient: one OpenShift
+ServiceAccount with the existing `edit` ClusterRole bound only in the learner's
+namespace. Its token goes in `credential-ocp`; no extra cluster-wide grant was
+needed in the real test. The API honored a requested 30-day duration on the
+tested cluster. Check the server's actual issued expiration and warnings.
+Learners retain this identity across VM create/delete cycles; our temporary
+test identity was removed only as validation cleanup.
 
 `rhel_register.yml` still consumes `activation_key` and `organization_id`
 exactly as before. Their authentication flow remains under review; this

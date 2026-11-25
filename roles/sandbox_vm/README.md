@@ -90,5 +90,6 @@ guest-agent report and leave an immediate inventory sync without `ansible_host`.
 - Check mode is deliberately unsupported and fails before operations.
 - Fresh VM creation, persisted-key retrieval, guest SSH/sudo access, stop/start
   and complete cleanup passed the approved normal-path test on the pinned EE
-  and supplied RHEL 9 image. See [validation results](../../docs/validation.md).
+  and supplied RHEL 9 image with both a user token and a namespace-edit
+  ServiceAccount token. See [validation results](../../docs/validation.md).
   This does not validate other images or external Red Hat registration.

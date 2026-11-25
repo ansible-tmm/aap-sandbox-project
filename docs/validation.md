@@ -2,7 +2,7 @@
 
 Recorded November 25, 2026. **OpenShift end-to-end validation is still pending.**
 
-## Completed checks
+## Completed preflight checks for the first candidate
 
 | Check | Result |
 | --- | --- |
@@ -54,6 +54,47 @@ guest authentication.
 The next approved test is the normal Create → inventory sync → fresh-job SSH
 verification → Stop → Start → Delete sequence described in the README.
 Its test-branch push and named OpenShift resources require confirmation first.
+
+## First real Create VM run
+
+Candidate commit `bdac26f` was pushed only to `lab/supported-ee-validation`.
+The isolated AAP test project synced that exact commit successfully without
+extra Galaxy downloads, and discovered all seven intended playbooks.
+
+Create VM job **#6**:
+
+- Generated the per-VM SSH identity automatically in the supported EE.
+- Created the SSH Secret and full cloud-init Secret successfully.
+- Was rejected at VM admission by
+  `users.virtualmachines.validating.webhook.sandbox`: a user must be configured
+  in the cloud-init volume.
+- Created no VM, DataVolume, or boot PVC. The two managed Secrets remain for
+  the normal retry/cleanup path.
+
+The public Sandbox webhook implementation explains the rejection: its validator
+requires an inline `user` string, and its mutator appends platform SSH keys to
+inline user data. It also enforces `Manual` to work with the Sandbox idler.
+This explains why caller-side payload measurements alone cannot establish the
+size ultimately checked by KubeVirt.
+
+The revised candidate uses OpenShift's documented `accessCredentials` /
+`noCloud` public-key Secret mechanism plus a minimal, non-sensitive inline user
+bootstrap. The private key remains in the separate SSH identity Secret, never
+referenced by the VM. No admission or cluster policy is changed.
+
+Revised-source preflight in supported-EE diagnostic **#8** passed all syntax,
+template and inventory-interface checks on ansible-core 2.16.19. The source
+fingerprint for that check is:
+
+```text
+39c5d5341a102eb3233f9731accd170626f861bac1cc7c398a2a1f2ee2902809
+```
+
+References:
+
+- [OpenShift 4.22 SSH-key management](https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/virtualization/managing-vms)
+- [Sandbox validator](https://github.com/codeready-toolchain/member-operator/blob/master/pkg/webhook/validatingwebhook/validate_vm_request.go)
+- [Sandbox mutator](https://github.com/codeready-toolchain/member-operator/blob/master/pkg/webhook/mutatingwebhook/vm_mutate.go)
 
 ## Resource sizing review
 

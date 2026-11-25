@@ -69,11 +69,18 @@ spec:
         - effect: NoSchedule
           key: sandbox-cnv
           operator: Exists
+      accessCredentials:
+        - sshPublicKey:
+            propagationMethod:
+              noCloud: {}
+            source:
+              secret:
+                secretName: "{{ sandbox_vm_cloudinit_secret_name }}"
       volumes:
         - name: rootdisk
           dataVolume:
             name: "{{ sandbox_vm_name }}"
         - name: cloudinitdisk
           cloudInitNoCloud:
-            userDataSecretRef:
-              name: "{{ sandbox_vm_cloudinit_secret_name }}"
+            userData: |
+{{ __sandbox_vm_cloud_init | indent(14, true) }}

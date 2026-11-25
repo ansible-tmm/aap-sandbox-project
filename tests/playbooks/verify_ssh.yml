@@ -21,6 +21,14 @@
 
         - name: Verify Ansible can execute in the guest
           ansible.builtin.ping:
+
+        - name: Verify the image permits the privilege escalation needed by system roles
+          ansible.builtin.command:
+            argv:
+              - sudo
+              - -n
+              - "true"
+          changed_when: false
       always:
         - name: Remove the temporary SSH identity
           ansible.builtin.include_role:

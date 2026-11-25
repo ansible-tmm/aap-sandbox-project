@@ -110,16 +110,17 @@ def main() -> int:
                             "ocp_namespace": "render-check-only",
                             # A placeholder, not a usable SSH key. No VM is created.
                             "__sandbox_vm_public_key": "ssh-ed25519 PUBLIC_KEY_PLACEHOLDER",
+                            "__sandbox_vm_cloud_init": (
+                                "{{ lookup('ansible.builtin.template', '"
+                                + str(ROLE / "templates" / "cloud-init.yml.j2")
+                                + "') }}"
+                            ),
                             "rendered_vm": (
                                 "{{ lookup('ansible.builtin.template', '"
                                 + str(ROLE / "templates" / "virtual-machine.yml.j2")
                                 + "') | from_yaml }}"
                             ),
-                            "rendered_cloud_init": (
-                                "{{ lookup('ansible.builtin.template', '"
-                                + str(ROLE / "templates" / "cloud-init.yml.j2")
-                                + "') | from_yaml }}"
-                            ),
+                            "rendered_cloud_init": "{{ __sandbox_vm_cloud_init | from_yaml }}",
                         },
                         "tasks": [
                             {
@@ -134,12 +135,15 @@ def main() -> int:
                                         "rendered_vm.metadata.namespace == 'render-check-only'",
                                         "rendered_vm.metadata.labels['app.kubernetes.io/part-of'] == 'aap-sandbox-project'",
                                         "rendered_vm.spec.template.metadata.labels['app.kubernetes.io/part-of'] == 'aap-sandbox-project'",
-                                        "rendered_vm.spec.template.spec.volumes[1].cloudInitNoCloud == {'userDataSecretRef': {'name': 'aap-lab-validation-cloudinit'}}",
-                                        "rendered_cloud_init.users[0].ssh_authorized_keys == ['ssh-ed25519 PUBLIC_KEY_PLACEHOLDER']",
-                                        "rendered_cloud_init.users[0].sudo[0] is string",
-                                        "rendered_cloud_init.users[0].lock_passwd",
+                                        "rendered_vm.spec.template.spec.volumes[1].cloudInitNoCloud.userData.startswith('#cloud-config\\n')",
+                                        "'userDataSecretRef' not in rendered_vm.spec.template.spec.volumes[1].cloudInitNoCloud",
+                                        "rendered_vm.spec.template.spec.accessCredentials[0].sshPublicKey.source.secret.secretName == 'aap-lab-validation-cloudinit'",
+                                        "rendered_vm.spec.template.spec.accessCredentials[0].sshPublicKey.propagationMethod == {'noCloud': {}}",
+                                        "'PUBLIC_KEY_PLACEHOLDER' not in (rendered_vm | to_json)",
+                                        "rendered_cloud_init.user == 'cloud-user'",
+                                        "'ssh_authorized_keys' not in rendered_cloud_init",
+                                        "__sandbox_vm_cloud_init | length < 512",
                                         "not rendered_cloud_init.ssh_pwauth",
-                                        "'passwd' not in rendered_cloud_init.users[0]",
                                         "'chpasswd' not in rendered_cloud_init",
                                     ]
                                 },

@@ -28,7 +28,7 @@ on OpenShift Virtualization.
 │   └── sandbox_vm/
 │       ├── defaults/main.yml     # Settings and existing inventory-var mappings
 │       ├── tasks/                # Lifecycle, generated keys, SSH setup/cleanup
-│       ├── templates/            # VM manifest and public-key-only cloud-init
+│       ├── templates/            # VM manifest and minimal user bootstrap
 │       ├── vars/main.yml         # Internal resource labels
 │       └── README.md
 └── tests/
@@ -106,9 +106,12 @@ inventory entry. Sync inventory after provisioning or restarting.
 1. **Create VM** generates a per-VM Ed25519 key pair inside its EE if the SSH
    Secret does not exist. Existing identities are reused, not rotated.
 2. `<vm_name>-ssh` stores the private and public key. `<vm_name>-cloudinit`
-   stores cloud-init containing **only the public key**.
-3. The VM references the cloud-init Secret. It retains `runStrategy: Manual`;
-   the playbook explicitly starts it and waits for an authenticated SSH connection.
+   stores **only the public key**, for static injection into cloud-init at boot.
+3. The VM uses `accessCredentials.sshPublicKey` with `propagationMethod.noCloud`
+   to reference that public-key Secret. A tiny inline cloud-init document
+   identifies `cloud-user` and disables password/root SSH login.
+   The VM retains `runStrategy: Manual`; the playbook explicitly starts it and
+   waits for an authenticated SSH connection.
 4. Each guest job retrieves the private key through `credential-ocp`, stages it
    in a private temporary EE directory with file mode `0600`, and removes the
    files in an `always` block.
@@ -119,13 +122,34 @@ Create does not adopt existing unmanaged VMs or disks. If an existing VM loses
 its SSH Secret, the playbook fails rather than generate a replacement identity
 that the existing guest would not recognize.
 
+### Sandbox-specific cloud-init policy
+
+The first real run generated both Secrets successfully, but the Sandbox
+admission webhook rejected a VM whose entire user data was referenced through
+`userDataSecretRef`. The Sandbox validates an inline `user` field; a `users`
+list alone does not satisfy that check. Its mutating webhook also appends
+platform-managed SSH keys to inline user data.
+
+The candidate follows OpenShift's documented static-key injection pattern:
+minimal, non-sensitive inline user configuration plus a separate public-key
+Secret referenced through `accessCredentials`. Generated project keys are not
+embedded in the VM manifest. The RHEL image supplies its default cloud user's
+sudo configuration; the separate SSH-verification job checks passwordless sudo.
+
+`Manual` is also enforced by the Sandbox webhooks for compatibility with the
+Sandbox idler. It is not merely an old collection workaround.
+
+- [OpenShift 4.22 static SSH-key injection](https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/virtualization/managing-vms)
+- [Sandbox VM validation implementation](https://github.com/codeready-toolchain/member-operator/blob/master/pkg/webhook/validatingwebhook/validate_vm_request.go)
+- [Sandbox VM mutation implementation](https://github.com/codeready-toolchain/member-operator/blob/master/pkg/webhook/mutatingwebhook/vm_mutate.go)
+
 ### Security boundaries
 
 - This is a disposable, single-user sandbox design, not an enterprise key vault.
   Anyone able to read the SSH Secret can obtain the guest's private key.
   Base64 encoding does not encrypt a Kubernetes Secret; cluster RBAC and the
   platform's at-rest encryption policy govern its protection.
-- The private key is never included in cloud-init, the guest disk, project
+- The generated private key is never included in cloud-init, the guest disk, project
   content, inventory variables, or intentional job output.
 - Secret-handling tasks use `no_log` and suppress diffs. Temporary key files
   are outside project and artifact directories. Job termination can bypass
@@ -168,7 +192,8 @@ The normal test sequence is:
 1. Run `playbooks/ocp_vm_create.yml`.
 2. Sync the inventory source.
 3. Run `tests/playbooks/verify_ssh.yml` as a separate AAP job using only
-   `credential-ocp`. This proves a fresh EE can retrieve and use the identity.
+    `credential-ocp`. This proves a fresh EE can retrieve and use the identity
+    and that the image permits the sudo access required by the system roles.
 4. Run Stop VM, Start VM, then refresh inventory.
 5. Run Delete VM and confirm the VM, DataVolume, PVC, and both Secrets are gone.
 

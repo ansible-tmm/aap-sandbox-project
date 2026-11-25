@@ -20,7 +20,7 @@ Public playbooks select a semantic `sandbox_vm_action`:
 
 | Action | Outcome |
 | --- | --- |
-| `create` | Ensure keys and cloud-init Secrets, provision VM, explicitly start it |
+| `create` | Ensure SSH identity and public-key Secrets, provision VM, explicitly start it |
 | `start` | Start the managed Manual-strategy VM and discover its address |
 | `stop` | Stop the managed Manual-strategy VM |
 | `delete` | Remove managed VM, DataVolume and Secrets; wait for PVC cleanup |
@@ -61,6 +61,13 @@ The original architecture, machine type, firmware, pod masquerade network and
 sandbox scheduling toleration are retained. The fixed MAC and obsolete template
 revision labels are omitted; the platform assigns the MAC, and project labels
 identify managed resources.
+
+The Sandbox requires an inline cloud-init `user` string and enforces `Manual`
+for its idler. Full `userDataSecretRef` bootstrap was rejected in the real test.
+Instead, a small user-only bootstrap is inline; `accessCredentials` / `noCloud`
+injects the generated public key from `<vm_name>-cloudinit`. That Secret contains
+only `data.key`, never a private key or an entire cloud-config document.
+The `<vm_name>-ssh` identity Secret is never referenced by the VM.
 
 ## State, cleanup and limitations
 

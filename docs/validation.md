@@ -297,6 +297,96 @@ User-approved on November 25, 2026:
   real registration, `tree` install, Timesync, Create rerun, four-node
   workflow, UI review, final unregistration/cleanup.
 
+## Retained-environment results: registration and Timesync
+
+Recorded November 25, 2026. All runs used the existing bench, the retained VM
+`aap-lab-validation` in `rhn-support-lgallego-dev`, the pinned supported EE,
+and the namespaced ServiceAccount identity (see the corrected token method
+below). No playbook authentication changes were required: values were supplied
+through AAP credentials injecting the existing `activation_key` /
+`organization_id` variable names.
+
+### Token method correction
+
+- The guide's `oc create token` command is valid on this cluster, but the
+  TokenRequest subresource is served for this user only through the core
+  `/api/v1/namespaces/<ns>/serviceaccounts/<sa>/token` path. The equivalent
+  request under `/apis/authentication.k8s.io/v1/...` returns HTTP 403 for the
+  same user. SelfSubjectAccessReview confirms this is authorization scoping
+  (group `""` with `subresource: token` is allowed; the aggregated API group
+  is not), not a missing capability.
+- A 30-day token was issued through the working path and verified. The
+  temporary legacy SA-token Secret used during diagnosis was deleted after the
+  replacement token was verified end-to-end with a fresh AAP job.
+
+### Credential-type findings
+
+- The built-in `Insights` credential type exists in this controller (fields:
+  username/password, client ID/secret) but cannot be attached to a job
+  template: the controller rejects it with "Cannot assign a Credential of
+  kind `insights`" regardless of attach order.
+- No built-in credential type injects the registration variable names.
+- Custom credential types of kind `cloud` attach alongside the OpenShift
+  Kubernetes bearer-token credential. Two types were created on the instance:
+  a diagnostic client-ID/secret type and the activation-key type documented in
+  [credential-type-redhat-registration.yml](credential-type-redhat-registration.yml).
+- Inputs of a custom credential type become read-only ("in use") once any
+  credential of that type exists; changing the field set requires deleting
+  its credentials.
+
+### Registration diagnostics
+
+Baseline (jobs **41/45**) on the fresh, unregistered guest: `subscription-manager
+identity` rc=1 "This system is not yet registered"; `rhc status` not connected
+to RHSM or Insights; `tree` not installed.
+
+**Original mapping (client ID as Organization ID, client secret as Activation
+Key): FAILED with decisive evidence.** Job **43** failed at
+`subscription-manager` in 18.8 s:
+`Organization e314c041-... does not exist.` A Hybrid Cloud Console
+service-account client ID is not a valid RHSM organization ID. No consumer was
+created; the guest remained unregistered. The published lesson's relabeling
+cannot register a system.
+
+**Corrected mapping (real activation key + numeric organization ID): PASSED.**
+Job **46** succeeded in 155.3 s with zero failed tasks:
+
+| Evidence | Result |
+| --- | --- |
+| Consumer identity | `862e2433-fdb7-4fd5-bb08-038b87b2a12a`, org ID `1979710` |
+| Lightspeed defaults (approved) | Connected to RHSM, Insights, and RHC daemon active |
+| Repositories unlocked | `rhel-9-for-x86_64-appstream-rpms`, `rhel-9-for-x86_64-baseos-rpms` |
+| Entitlement proof (job **47**) | `tree-1.8.0-10.el9.x86_64` installed from the unlocked repos |
+| Secret redaction | Job-event scan of job 46: no credential markers |
+
+### Timesync: configuration validated; NTP egress blocked
+
+Timesync job **49** succeeded in 28.5 s with zero failed tasks. Follow-up
+read-only checks (jobs **51/53/55**) recorded:
+
+- `chronyd` active and enabled.
+- `/etc/chrony.conf` matches the playbook exactly:
+  `server 0.rhel.pool.ntp.org iburst prefer`, `pool 1.rhel.pool.ntp.org iburst`.
+- `chronyc sources`: all pool members reachable by name but `^?` with reach 0;
+  `chronyc tracking`: "Not synchronised" several minutes after configuration.
+- A read-only NTP probe (`chronyd -Q`, 15 s, clock untouched) received zero
+  responses.
+
+Narrow diagnosis: DNS resolves the pool hosts and TCP 443 egress works from
+the same guest (registration and dnf prove it), so the blocked protocol is
+UDP/123 to internet NTP pools. Namespace NetworkPolicies do not govern the VM
+(all are ingress-oriented or AAP-pod-scoped), and the project EgressFirewall
+is not readable by this user — a platform-level egress restriction is the
+apparent cause and was not modified.
+
+Implication: in the Developer Sandbox, the Timesync exercise can demonstrate
+the role applying the intended configuration and starting chronyd, but
+chrony will report "Not synchronised" because internet NTP is unreachable.
+Guest time is maintained by the platform (KubeVirt synchronizes the guest RTC
+from the host), which limits the practical impact. The guide needs this
+expectation documented rather than presenting internet-pool sync as an
+observable outcome.
+
 ## Guide revision
 
 The working learning path now uses the verified core experience rather than
